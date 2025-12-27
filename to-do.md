@@ -1,8 +1,9 @@
 To-Do List: (at least)
   MIP:
-- [ ] Design of the model
-- [ ] Implementation of the model
-- [ ] Test of the model
+
+- [X] Design of the model
+- [X] Implementation of the model
+- [X] Test of the model
 
   CP:
 - [ ] Design of the model
@@ -12,13 +13,16 @@ To-Do List: (at least)
   Comparison between the MIP and CP models:
 - [ ] Comparing both the solutions (to check for correctness)
 - [ ] Comparing the running times (to check for efficiency) of the model
+- [ ] Fazer gráfico das differentes formas de search strategies
+- [ ] Valor ótimo de multiple runways
 
 Notes:
+
 - You can compare CP models using the basic and the more compact constraints on your problem instances.
 - You should also analyze the impact of different search options for CP.
 
-
 Ideias:
+
 - visualização interativa ou dinâmica da sequência dos aviões a aterrarem para um certo conjunto de dados (fica bem visualmente para até 30 aviões, mais pode ser confuso)
 
 Interpretação dos ficheiros:
