@@ -13,8 +13,11 @@ To-Do List: (at least)
   Comparison between the MIP and CP models:
 - [ ] Comparing both the solutions (to check for correctness)
 - [ ] Comparing the running times (to check for efficiency) of the model
+
+  Others:
 - [ ] Fazer gráfico das differentes formas de search strategies
 - [ ] Valor ótimo de multiple runways
+- [ ] Fazer junção do MIP com o CP
 
 Notes:
 
