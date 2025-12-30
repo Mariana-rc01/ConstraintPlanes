@@ -1,4 +1,6 @@
+import tracemalloc, time
 from ortools.linear_solver import pywraplp
+from others.performance import PerformanceMIP
 
 # Single Runway
 # Model
@@ -7,40 +9,40 @@ def create_mip_model_single_runway(num_planes, planes_data, separation_times):
     print("\t\tCreating Single Runway MIP Model")
     print("=" * 60, "\n")
 
-    solver = pywraplp.Solver.CreateSolver('SAT')
+    solver = pywraplp.Solver.CreateSolver('SCIP')
     variables = {}
 
     # Decision Variables
-    # x_i
+    # x_i: landing times
     landing_times = [
-        solver.NumVar(planes_data[i]["earliest_landing_time"], planes_data[i]["latest_landing_time"], f"x_{i}",)
+        solver.NumVar(planes_data[i]["earliest_landing_time"], planes_data[i]["latest_landing_time"], f"x_{i}")
         for i in range(num_planes)
     ]
     variables["landing_time"] = landing_times
 
-    # delta_ij
+    # delta_ij: binary order variables
     landing_order = {}
     for i in range(num_planes):
         for j in range(num_planes):
             if i != j:
-                landing_order[(i, j)] = solver.NumVar(0, 1, f"delta_{i}_{j}")
+                landing_order[(i, j)] = solver.BoolVar(f"delta_{i}_{j}")
     variables["landing_order"] = landing_order
 
-    # alpha_i
+    # alpha_i: early deviation
     early_deviation = [
-        solver.NumVar(0, max(planes_data[i]["target_landing_time"] - planes_data[i]["earliest_landing_time"],0, ), f"alpha_{i}",)
+        solver.NumVar(0, max(planes_data[i]["target_landing_time"] - planes_data[i]["earliest_landing_time"], 0), f"alpha_{i}")
         for i in range(num_planes)
     ]
     variables["early_deviation"] = early_deviation
 
-    # beta_i
+    # beta_i: late deviation
     late_deviation = [
-        solver.NumVar(0, max(planes_data[i]["latest_landing_time"] - planes_data[i]["target_landing_time"], 0,), f"beta_{i}",)
+        solver.NumVar(0, max(planes_data[i]["latest_landing_time"] - planes_data[i]["target_landing_time"], 0), f"beta_{i}")
         for i in range(num_planes)
     ]
     variables["late_deviation"] = late_deviation
 
-    # Sets U, V, W
+    # Sets W, U, V for constraints
     W, U, V = [], [], []
     for i in range(num_planes):
         for j in range(num_planes):
@@ -57,23 +59,28 @@ def create_mip_model_single_runway(num_planes, planes_data, separation_times):
                     U.append((i, j))
 
     # Constraints
+    # Each pair must satisfy delta_ij + delta_ji = 1
     for i in range(num_planes):
-        for j in range(i+1, num_planes):
+        for j in range(i + 1, num_planes):
             solver.Add(landing_order[(i, j)] + landing_order[(j, i)] == 1)
 
-    for i,j in W:
+    # W constraints: fixed order
+    for i, j in W:
         solver.Add(landing_order[(i, j)] == 1)
 
-    for i,j in V:
-        solver.Add(landing_order[(i,j)] == 1)
+    # V constraints: fixed order + separation time
+    for i, j in V:
+        solver.Add(landing_order[(i, j)] == 1)
         solver.Add(landing_times[j] >= landing_times[i] + separation_times[i][j])
 
-    for i,j in U:
+    # U constraints: conditional separation
+    for i, j in U:
         delta_ij = landing_order[(i, j)]
         delta_ji = landing_order[(j, i)]
         L_i, E_j = planes_data[i]["latest_landing_time"], planes_data[j]["earliest_landing_time"]
         solver.Add(landing_times[j] >= landing_times[i] + separation_times[i][j] * delta_ij - (L_i - E_j) * delta_ji)
 
+    # Early/Late deviation constraints
     for i in range(num_planes):
         E_i, L_i, T_i = planes_data[i]["earliest_landing_time"], planes_data[i]["latest_landing_time"], planes_data[i]["target_landing_time"]
         solver.Add(early_deviation[i] >= T_i - landing_times[i])
@@ -84,15 +91,14 @@ def create_mip_model_single_runway(num_planes, planes_data, separation_times):
         solver.Add(late_deviation[i] >= 0)
         solver.Add(late_deviation[i] <= L_i - T_i)
 
+        # Link landing time with deviations
         solver.Add(landing_times[i] == T_i - early_deviation[i] + late_deviation[i])
 
-    # Objective Function
+    # Objective Function: minimize penalties
     objective = solver.Objective()
-
     for i in range(num_planes):
         objective.SetCoefficient(early_deviation[i], planes_data[i]["penalty_early"])
         objective.SetCoefficient(late_deviation[i], planes_data[i]["penalty_late"])
-
     objective.SetMinimization()
 
     print("-> Decision variables:", solver.NumVariables())
@@ -101,7 +107,7 @@ def create_mip_model_single_runway(num_planes, planes_data, separation_times):
     return solver, variables
 
 # Solver
-def solve_single_runway_mip(num_planes, planes_data, separation_times, hint=False):
+def solve_single_runway_mip(num_planes, planes_data, separation_times, hint=False, performance=False):
     solver, variables = create_mip_model_single_runway(num_planes, planes_data, separation_times)
 
     if hint:
@@ -113,38 +119,90 @@ def solve_single_runway_mip(num_planes, planes_data, separation_times, hint=Fals
     print("\t\t\tSolving MIP")
     print("=" * 60, "\n")
 
+    if performance:
+        tracemalloc.start()
+        start_time = time.time()
+
     status = solver.Solve()
+
+    if performance:
+        exec_time = time.time() - start_time
+        current_mem, peak_mem = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        # Convert to MB
+        memory_usage = peak_mem / 10**6
 
     landing_time = variables["landing_time"]
     early_deviation = variables["early_deviation"]
     late_deviation = variables["late_deviation"]
 
-    # Print all landing times
+    plane_ids = [str(i) for i in range(num_planes)]
+    l_times = [f"{landing_time[i].solution_value() if status == pywraplp.Solver.OPTIMAL else solver.Value(landing_time[i]):.2f}" 
+               for i in range(num_planes)]
+    earliest = [f"{planes_data[i]['earliest_landing_time']:.2f}" for i in range(num_planes)]
+    targets = [f"{planes_data[i]['target_landing_time']:.2f}" for i in range(num_planes)]
+    latest = [f"{planes_data[i]['latest_landing_time']:.2f}" for i in range(num_planes)]
+
+    w_plane = max(len("Plane"), max(len(pid) for pid in plane_ids))
+    w_landing = max(len("Landing Time"), max(len(lt) for lt in l_times))
+    w_earliest = max(len("Earliest"), max(len(e) for e in earliest))
+    w_target = max(len("Target"), max(len(t) for t in targets))
+    w_latest = max(len("Latest"), max(len(l) for l in latest))
+
     print("-> Landing times of all planes:")
-    print(f"{'Plane':>5} | {'Landing Time':>12} | {'Earliest':>8} | {'Target':>6} | {'Latest':>6}")
-    print("-" * 55)
+    header = f"{'Plane':>{w_plane}} | {'Landing Time':>{w_landing}} | {'Earliest':>{w_earliest}} | {'Target':>{w_target}} | {'Latest':>{w_latest}}"
+    print(header)
+    print("-" * len(header))
+
     for i in range(num_planes):
         lt = landing_time[i].solution_value() if status == pywraplp.Solver.OPTIMAL else solver.Value(landing_time[i])
-        e_i = planes_data[i]["earliest_landing_time"]
-        t_i = planes_data[i]["target_landing_time"]
-        l_i = planes_data[i]["latest_landing_time"]
-        print(f"{i:5d} | {lt:12.2f} | {e_i:8.2f} | {t_i:6.2f} | {l_i:6.2f}")
+        print(f"{i:>{w_plane}} | {lt:>{w_landing}.2f} | "
+              f"{planes_data[i]['earliest_landing_time']:>{w_earliest}.2f} | "
+              f"{planes_data[i]['target_landing_time']:>{w_target}.2f} | "
+              f"{planes_data[i]['latest_landing_time']:>{w_latest}.2f}")
 
-    # Print planes that did not land on target time
+    # Planes that did not land on target time
+    early_dev_list = [early_deviation[i].solution_value() if status == pywraplp.Solver.OPTIMAL else solver.Value(early_deviation[i]) 
+                      for i in range(num_planes)]
+    late_dev_list = [late_deviation[i].solution_value() if status == pywraplp.Solver.OPTIMAL else solver.Value(late_deviation[i]) 
+                     for i in range(num_planes)]
+    penalty_list = [early_dev_list[i]*planes_data[i]['penalty_early'] + late_dev_list[i]*planes_data[i]['penalty_late'] 
+                    for i in range(num_planes)]
+
+    plane_ids2 = [str(i) for i in range(num_planes) if early_dev_list[i] > 0 or late_dev_list[i] > 0]
+    l_times2 = [f"{landing_time[i].solution_value() if status == pywraplp.Solver.OPTIMAL else solver.Value(landing_time[i]):.2f}" 
+                for i in range(num_planes) if early_dev_list[i] > 0 or late_dev_list[i] > 0]
+    targets2 = [f"{planes_data[i]['target_landing_time']:.2f}" for i in range(num_planes) if early_dev_list[i] > 0 or late_dev_list[i] > 0]
+    early_dev_str = [f"{early_dev_list[i]:.2f}" for i in range(num_planes) if early_dev_list[i] > 0 or late_dev_list[i] > 0]
+    late_dev_str = [f"{late_dev_list[i]:.2f}" for i in range(num_planes) if early_dev_list[i] > 0 or late_dev_list[i] > 0]
+    penalty_str = [f"{penalty_list[i]:.2f}" for i in range(num_planes) if early_dev_list[i] > 0 or late_dev_list[i] > 0]
+
+    w_plane2 = max(len("Plane"), max(len(pid) for pid in plane_ids2) if plane_ids2 else 0)
+    w_landing2 = max(len("Landing Time"), max(len(lt) for lt in l_times2) if l_times2 else 0)
+    w_target2 = max(len("Target"), max(len(t) for t in targets2) if targets2 else 0)
+    w_early = max(len("Early Dev"), max(len(ed) for ed in early_dev_str) if early_dev_str else 0)
+    w_late = max(len("Late Dev"), max(len(ld) for ld in late_dev_str) if late_dev_str else 0)
+    w_penalty = max(len("Penalty"), max(len(pen) for pen in penalty_str) if penalty_str else 0)
+
     print("\n-> Planes that did not land on the target time:")
-    print(f"{'Plane':>5} | {'Landing Time':>12} | {'Target':>6} | {'Early Dev':>9} | {'Late Dev':>8} | {'Penalty':>8}")
-    print("-" * 65)
+    header2 = f"{'Plane':>{w_plane2}} | {'Landing Time':>{w_landing2}} | {'Target':>{w_target2}} | {'Early Dev':>{w_early}} | {'Late Dev':>{w_late}} | {'Penalty':>{w_penalty}}"
+    print(header2)
+    print("-" * len(header2))
 
+    any_missed = False
     for i in range(num_planes):
-        e_ = early_deviation[i].solution_value() if status == pywraplp.Solver.OPTIMAL else solver.Value(early_deviation[i])
-        l_ = late_deviation[i].solution_value() if status == pywraplp.Solver.OPTIMAL else solver.Value(late_deviation[i])
-
-        if e_ > 0 or l_ > 0:
-            penalty = e_ * planes_data[i]["penalty_early"] + l_ * planes_data[i]["penalty_late"]
+        if early_dev_list[i] > 0 or late_dev_list[i] > 0:
+            any_missed = True
             lt = landing_time[i].solution_value() if status == pywraplp.Solver.OPTIMAL else solver.Value(landing_time[i])
-            target_t = planes_data[i]["target_landing_time"]
-            print(f"{i:5d} | {lt:12.2f} | {target_t:6.2f} | {e_:9.2f} | {l_:8.2f} | {penalty:8.2f}")
+            print(f"{i:>{w_plane2}} | {lt:>{w_landing2}.2f} | "
+                  f"{planes_data[i]['target_landing_time']:>{w_target2}.2f} | "
+                  f"{early_dev_list[i]:>{w_early}.2f} | {late_dev_list[i]:>{w_late}.2f} | "
+                  f"{penalty_list[i]:>{w_penalty}.2f}")
 
+    if not any_missed:
+        print("(none)")
+
+    # Status
     if status == pywraplp.Solver.OPTIMAL:
         print(f"\n-> Optimal Cost: {solver.Objective().Value()}")
     elif status == pywraplp.Solver.FEASIBLE:
@@ -152,7 +210,27 @@ def solve_single_runway_mip(num_planes, planes_data, separation_times, hint=Fals
     else:
         print("\n-> No feasible/optimal solution found. Status:", solver.StatusName(status))
 
-    return solver, variables
+    # Metrics
+    if performance:
+        perf = PerformanceMIP(solver)
+        print("\n-> Performance Metrics:")
+        print(f"   - Execution Time: {exec_time:.4f} seconds")
+        print(f"   - Memory Usage: {memory_usage:.4f} MB")
+        print(f"   - Number of Variables: {perf.get_num_variables()}")
+        print(f"   - Number of Constraints: {perf.get_num_constraints()}")
+        print(f"   - Total Penalty: {perf.get_total_penalty()}")
+        print(f"   - Number of Branch-and-Bound Nodes: {perf.get_num_branch_and_bound_nodes()}")
+
+        metrics = {
+            "execution_time": exec_time,
+            "memory_usage_MB": memory_usage,
+            "num_variables": perf.get_num_variables(),
+            "num_constraints": perf.get_num_constraints(),
+            "total_penalty": perf.get_total_penalty(),
+            "num_branch_and_bound_nodes": perf.get_num_branch_and_bound_nodes()
+        }
+
+    return solver, variables, metrics if performance else None
 
 # Multiples Runways
 # Model
@@ -161,48 +239,43 @@ def create_mip_model_multiple_runways(num_planes, planes_data, separation_times,
     print("\t\tCreating Multiple Runways MIP Solver")
     print("=" * 60, "\n")
 
-    solver = pywraplp.Solver.CreateSolver('SAT')
+    solver = pywraplp.Solver.CreateSolver('SCIP')
     variables = {}
 
     # Decision Variables
-    # x_i
     landing_times = [
-        solver.NumVar(planes_data[i]["earliest_landing_time"], planes_data[i]["latest_landing_time"], f"x_{i}",)
+        solver.NumVar(planes_data[i]["earliest_landing_time"], planes_data[i]["latest_landing_time"], f"x_{i}")
         for i in range(num_planes)
     ]
     variables["landing_time"] = landing_times
 
-    # delta_ij
     landing_order = {}
     for i in range(num_planes):
         for j in range(num_planes):
             if i != j:
-                landing_order[(i, j)] = solver.NumVar(0, 1, f"delta_{i}_{j}")
+                landing_order[(i, j)] = solver.BoolVar(f"delta_{i}_{j}")
     variables["landing_order"] = landing_order
 
-    # alpha_i
     early_deviation = [
-        solver.NumVar(0, max(planes_data[i]["target_landing_time"] - planes_data[i]["earliest_landing_time"],0, ), f"alpha_{i}",)
+        solver.NumVar(0, max(planes_data[i]["target_landing_time"] - planes_data[i]["earliest_landing_time"], 0), f"alpha_{i}")
         for i in range(num_planes)
     ]
     variables["early_deviation"] = early_deviation
 
-    # beta_i
     late_deviation = [
-        solver.NumVar(0, max(planes_data[i]["latest_landing_time"] - planes_data[i]["target_landing_time"], 0,), f"beta_{i}",)
+        solver.NumVar(0, max(planes_data[i]["latest_landing_time"] - planes_data[i]["target_landing_time"], 0), f"beta_{i}")
         for i in range(num_planes)
     ]
     variables["late_deviation"] = late_deviation
 
-    # z_ij, y_ir
     landing_runway = {}
     same_runway = {}
     for i in range(num_planes):
         for r in range(num_runways):
-            landing_runway[(i, r)] = solver.NumVar(0, 1, f"y_{i}_{r}")
+            landing_runway[(i, r)] = solver.BoolVar(f"y_{i}_{r}")
         for j in range(num_planes):
             if i != j:
-                same_runway[(i, j)] = solver.NumVar(0, 1, f"z_{i}_{j}")
+                same_runway[(i, j)] = solver.BoolVar(f"z_{i}_{j}")
     variables["landing_runway"] = landing_runway
     variables["same_runway"] = same_runway
 
@@ -238,14 +311,15 @@ def create_mip_model_multiple_runways(num_planes, planes_data, separation_times,
 
     for i,j in V:
         solver.Add(landing_order[(i,j)] == 1)
-        solver.Add(landing_times[j] >= landing_times[i] + separation_times[i][j] * same_runway[(i,j)] + separation_times_between_runways[i][j] * (1 - same_runway[(i,j)]))
+        solver.Add(landing_times[j] >= landing_times[i] + separation_times[i][j] * same_runway[(i,j)] +
+                   separation_times_between_runways[i][j] * (1 - same_runway[(i,j)]))
 
     for i,j in U:
         delta_ij = landing_order[(i, j)]
         delta_ji = landing_order[(j, i)]
         L_i, E_j = planes_data[i]["latest_landing_time"], planes_data[j]["earliest_landing_time"]
         max_separation = max(separation_times[i][j], separation_times_between_runways[i][j])
-        solver.Add(landing_times[j] >= landing_times[i] + separation_times[i][j] * same_runway[(i,j)] - (L_i  + max_separation - E_j) * delta_ji)
+        solver.Add(landing_times[j] >= landing_times[i] + separation_times[i][j] * same_runway[(i,j)] - (L_i + max_separation - E_j) * delta_ji)
 
     for i in range(num_planes):
         E_i, L_i, T_i = planes_data[i]["earliest_landing_time"], planes_data[i]["latest_landing_time"], planes_data[i]["target_landing_time"]
@@ -274,7 +348,7 @@ def create_mip_model_multiple_runways(num_planes, planes_data, separation_times,
     return solver, variables
 
 # Solver
-def solve_multiple_runways_mip(num_planes, num_runways, planes_data, separation_times, separation_times_between_runways, hint=False):
+def solve_multiple_runways_mip(num_planes, num_runways, planes_data, separation_times, separation_times_between_runways, hint=False, performance=False):
     solver, variables = create_mip_model_multiple_runways(
         num_planes, planes_data, separation_times, separation_times_between_runways, num_runways
     )
@@ -288,23 +362,37 @@ def solve_multiple_runways_mip(num_planes, num_runways, planes_data, separation_
     print("\t\t\tSolving MIP")
     print("=" * 60, "\n")
 
+    if performance:
+        tracemalloc.start()
+        start_time = time.time()
+
     status = solver.Solve()
+
+    if performance:
+        exec_time = time.time() - start_time
+        current_mem, peak_mem = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        # Convert to MB
+        memory_usage = peak_mem / 10**6
 
     landing_time = variables["landing_time"]
     early_deviation = variables["early_deviation"]
     late_deviation = variables["late_deviation"]
     landing_runway = variables["landing_runway"]
 
-    # Landing times table
-    print("-> Landing times of all planes:")
-    print(f"{'Plane':>5} | {'Landing Time':>12} | {'Earliest':>8} | {'Target':>6} | {'Latest':>6} | {'Runway':>6}")
-    print("-" * 65)
+    plane_ids = [str(i) for i in range(num_planes)]
+    l_times = []
+    earliest = []
+    targets = []
+    latest = []
+    runways_assigned = []
 
     for i in range(num_planes):
         lt = landing_time[i].solution_value() if status == pywraplp.Solver.OPTIMAL else solver.Value(landing_time[i])
-        e_i = planes_data[i]["earliest_landing_time"]
-        t_i = planes_data[i]["target_landing_time"]
-        l_i = planes_data[i]["latest_landing_time"]
+        l_times.append(f"{lt:.2f}")
+        earliest.append(f"{planes_data[i]['earliest_landing_time']:.2f}")
+        targets.append(f"{planes_data[i]['target_landing_time']:.2f}")
+        latest.append(f"{planes_data[i]['latest_landing_time']:.2f}")
 
         r_assigned = None
         for r in range(num_runways):
@@ -312,33 +400,68 @@ def solve_multiple_runways_mip(num_planes, num_runways, planes_data, separation_
             if round(val) == 1:
                 r_assigned = r
                 break
+        runways_assigned.append(str(r_assigned))
 
-        print(f"{i:5d} | {lt:12.2f} | {e_i:8.2f} | {t_i:6.2f} | {l_i:6.2f} | {r_assigned:6d}")
+    w_plane = max(len("Plane"), max(len(pid) for pid in plane_ids))
+    w_landing = max(len("Landing Time"), max(len(lt) for lt in l_times))
+    w_earliest = max(len("Earliest"), max(len(e) for e in earliest))
+    w_target = max(len("Target"), max(len(t) for t in targets))
+    w_latest = max(len("Latest"), max(len(l) for l in latest))
+    w_runway = max(len("Runway"), max(len(r) for r in runways_assigned))
 
-    # Planes missing target time
-    print("\n-> Planes that did not land on the target time:")
-    print(f"{'Plane':>5} | {'Landing Time':>12} | {'Target':>6} | {'Early Dev':>9} | {'Late Dev':>8} | {'Penalty':>8} | {'Runway':>6}")
-    print("-" * 80)
+    print("-> Landing times of all planes:")
+    header = f"{'Plane':>{w_plane}} | {'Landing Time':>{w_landing}} | {'Earliest':>{w_earliest}} | {'Target':>{w_target}} | {'Latest':>{w_latest}} | {'Runway':>{w_runway}}"
+    print(header)
+    print("-" * len(header))
 
     for i in range(num_planes):
-        e_ = early_deviation[i].solution_value() if status == pywraplp.Solver.OPTIMAL else solver.Value(early_deviation[i])
-        l_ = late_deviation[i].solution_value() if status == pywraplp.Solver.OPTIMAL else solver.Value(late_deviation[i])
-        if e_ > 0 or l_ > 0:
-            penalty = e_ * planes_data[i]["penalty_early"] + l_ * planes_data[i]["penalty_late"]
-            lt = landing_time[i].solution_value() if status == pywraplp.Solver.OPTIMAL else solver.Value(landing_time[i])
-            target_t = planes_data[i]["target_landing_time"]
+        print(f"{plane_ids[i]:>{w_plane}} | {l_times[i]:>{w_landing}} | {earliest[i]:>{w_earliest}} | {targets[i]:>{w_target}} | {latest[i]:>{w_latest}} | {runways_assigned[i]:>{w_runway}}")
 
-            # Assigned runway
+    # --- Planes que não atingiram target ---
+    early_dev_list = [early_deviation[i].solution_value() if status == pywraplp.Solver.OPTIMAL else solver.Value(early_deviation[i]) for i in range(num_planes)]
+    late_dev_list = [late_deviation[i].solution_value() if status == pywraplp.Solver.OPTIMAL else solver.Value(late_deviation[i]) for i in range(num_planes)]
+    penalty_list = [early_dev_list[i]*planes_data[i]["penalty_early"] + late_dev_list[i]*planes_data[i]["penalty_late"] for i in range(num_planes)]
+
+    plane_ids2, l_times2, targets2, early_str, late_str, penalty_str, runways2 = [], [], [], [], [], [], []
+
+    for i in range(num_planes):
+        if early_dev_list[i] > 0 or late_dev_list[i] > 0:
+            plane_ids2.append(str(i))
+            lt = landing_time[i].solution_value() if status == pywraplp.Solver.OPTIMAL else solver.Value(landing_time[i])
+            l_times2.append(f"{lt:.2f}")
+            targets2.append(f"{planes_data[i]['target_landing_time']:.2f}")
+            early_str.append(f"{early_dev_list[i]:.2f}")
+            late_str.append(f"{late_dev_list[i]:.2f}")
+            penalty_str.append(f"{penalty_list[i]:.2f}")
+            # Runway
             r_assigned = None
             for r in range(num_runways):
                 val = landing_runway[(i, r)].solution_value() if status == pywraplp.Solver.OPTIMAL else solver.Value(landing_runway[(i, r)])
                 if round(val) == 1:
                     r_assigned = r
                     break
+            runways2.append(str(r_assigned))
 
-            print(f"{i:5d} | {lt:12.2f} | {target_t:6.2f} | {e_:9.2f} | {l_:8.2f} | {penalty:8.2f} | {r_assigned:6d}")
+    if plane_ids2:
+        w_plane2 = max(len("Plane"), max(len(pid) for pid in plane_ids2))
+        w_landing2 = max(len("Landing Time"), max(len(lt) for lt in l_times2))
+        w_target2 = max(len("Target"), max(len(t) for t in targets2))
+        w_early = max(len("Early Dev"), max(len(e) for e in early_str))
+        w_late = max(len("Late Dev"), max(len(l) for l in late_str))
+        w_penalty = max(len("Penalty"), max(len(p) for p in penalty_str))
+        w_runway2 = max(len("Runway"), max(len(r) for r in runways2))
 
-    # Print cost
+        print("\n-> Planes that did not land on the target time:")
+        header2 = f"{'Plane':>{w_plane2}} | {'Landing Time':>{w_landing2}} | {'Target':>{w_target2}} | {'Early Dev':>{w_early}} | {'Late Dev':>{w_late}} | {'Penalty':>{w_penalty}} | {'Runway':>{w_runway2}}"
+        print(header2)
+        print("-" * len(header2))
+
+        for i in range(len(plane_ids2)):
+            print(f"{plane_ids2[i]:>{w_plane2}} | {l_times2[i]:>{w_landing2}} | {targets2[i]:>{w_target2}} | {early_str[i]:>{w_early}} | {late_str[i]:>{w_late}} | {penalty_str[i]:>{w_penalty}} | {runways2[i]:>{w_runway2}}")
+    else:
+        print("\n(none)")
+
+    # Status
     if status == pywraplp.Solver.OPTIMAL:
         print(f"\n-> Optimal Cost: {solver.Objective().Value():.2f}")
     elif status == pywraplp.Solver.FEASIBLE:
@@ -346,4 +469,23 @@ def solve_multiple_runways_mip(num_planes, num_runways, planes_data, separation_
     else:
         print("\n-> No feasible/optimal solution found. Status:", solver.StatusName(status))
 
-    return solver, variables
+    # Metrics
+    if performance:
+        perf = PerformanceMIP(solver)
+        print("\n-> Performance Metrics:")
+        print(f"   - Execution Time: {exec_time:.4f} seconds")
+        print(f"   - Memory Usage: {memory_usage:.4f} MB")
+        print(f"   - Number of Variables: {perf.get_num_variables()}")
+        print(f"   - Number of Constraints: {perf.get_num_constraints()}")
+        print(f"   - Total Penalty: {perf.get_total_penalty()}")
+        print(f"   - Number of Branch-and-Bound Nodes: {perf.get_num_branch_and_bound_nodes()}")
+        metrics = {
+            "execution_time": exec_time,
+            "memory_usage_MB": memory_usage,
+            "num_variables": perf.get_num_variables(),
+            "num_constraints": perf.get_num_constraints(),
+            "total_penalty": perf.get_total_penalty(),
+            "num_branch_and_bound_nodes": perf.get_num_branch_and_bound_nodes()
+        }
+
+    return solver, variables, metrics if performance else None

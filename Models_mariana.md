@@ -152,7 +152,6 @@ Usar no código:
 - Total Penalty (Objective Value)
 - Memory Usage
 - Number of Branch-and-Bound Nodes
-- Optimality Gap (%) Gap = |Best Integer Solution - Best Bound| / |Best Integer Solution| * 100 % (verificar se é mesmo boa)
 
 ## CP
 - Execution Time

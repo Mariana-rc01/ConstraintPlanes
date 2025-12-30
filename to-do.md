@@ -17,7 +17,7 @@ To-Do List: (at least)
   Others:
 - [ ] Fazer gráfico das differentes formas de search strategies
 - [ ] Valor ótimo de multiple runways
-- [ ] Fazer junção do MIP com o CP
+- [X] Fazer junção do MIP com o CP -> ver melhor base matemática
 
 Notes:
 

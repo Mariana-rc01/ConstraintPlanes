@@ -7,9 +7,9 @@ import psutil
 
 def create_cp_model_single_runway(num_planes, planes_data, separation_times):
     print("=" * 60)
-    print("\t\t     Creating CP model") 
+    print("\t\t     Creating CP model")
     print("=" * 60, "\n")
-    
+
     # Create the CP-SAT model
     model = cp_model.CpModel()
 
@@ -100,7 +100,7 @@ def create_cp_model_single_runway(num_planes, planes_data, separation_times):
             if j > i:
                 before_ij_var = before_ij[i][j]
                 before_ji_var = before_ij_var.Not()
-    
+
     for i,j in V:
         S_ij = separation_times[i][j]
         model.Add(landing_time[j] >= landing_time[i] + S_ij)
@@ -150,17 +150,15 @@ def solve_single_runway_cp(num_planes, planes_data, separation_times,
 
     # Create solver instance
     solver = cp_model.CpSolver()
-
-    # Set search strategy
     solver.parameters.search_branching = search_strategy
 
     print("-> Number of decision variables created:", len(model.Proto().variables))
     print("-> Number of constraints:", len(model.Proto().constraints))
-
     print("\n" + "=" * 60)
     print("\t\t\tSolving CP")
     print("=" * 60, "\n")
 
+    # Apply decision strategies if provided
     if decision_strategies:
         for strategy in decision_strategies:
             var_names = strategy["variables"]
@@ -186,40 +184,64 @@ def solve_single_runway_cp(num_planes, planes_data, separation_times,
     early_deviation = vars_["early_deviation"]
     late_deviation = vars_["late_deviation"]
 
-    # ------------------------------------------------------------------
-    # Prints iguais ao MIP (tabelas + custo), adaptados ao CP-SAT
-    # ------------------------------------------------------------------
     if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-        # Print all landing times
-        print("-> Landing times of all planes:")
-        print(f"{'Plane':>5} | {'Landing Time':>12} | {'Earliest':>8} | {'Target':>6} | {'Latest':>6}")
-        print("-" * 55)
-        for i in range(num_planes):
-            lt = solver.Value(landing_time[i])
-            e_i = planes_data[i]["earliest_landing_time"]
-            t_i = planes_data[i]["target_landing_time"]
-            l_i = planes_data[i]["latest_landing_time"]
-            print(f"{i:5d} | {lt:12.2f} | {e_i:8.2f} | {t_i:6.2f} | {l_i:6.2f}")
+        plane_ids = [str(i) for i in range(num_planes)]
+        l_times = [f"{solver.Value(landing_time[i]):.2f}" for i in range(num_planes)]
+        earliest = [f"{planes_data[i]['earliest_landing_time']:.2f}" for i in range(num_planes)]
+        targets = [f"{planes_data[i]['target_landing_time']:.2f}" for i in range(num_planes)]
+        latest = [f"{planes_data[i]['latest_landing_time']:.2f}" for i in range(num_planes)]
 
-        # Print planes that did not land on target time
+        w_plane = max(len("Plane"), max(len(pid) for pid in plane_ids))
+        w_landing = max(len("Landing Time"), max(len(lt) for lt in l_times))
+        w_earliest = max(len("Earliest"), max(len(e) for e in earliest))
+        w_target = max(len("Target"), max(len(t) for t in targets))
+        w_latest = max(len("Latest"), max(len(l) for l in latest))
+
+        print("-> Landing times of all planes:")
+        header = f"{'Plane':>{w_plane}} | {'Landing Time':>{w_landing}} | {'Earliest':>{w_earliest}} | {'Target':>{w_target}} | {'Latest':>{w_latest}}"
+        print(header)
+        print("-" * len(header))
+
+        for i in range(num_planes):
+            print(f"{i:>{w_plane}} | {solver.Value(landing_time[i]):>{w_landing}.2f} | "
+                  f"{planes_data[i]['earliest_landing_time']:>{w_earliest}.2f} | "
+                  f"{planes_data[i]['target_landing_time']:>{w_target}.2f} | "
+                  f"{planes_data[i]['latest_landing_time']:>{w_latest}.2f}")
+
+        # Planes that did not land on target time
+        early_dev_list = [solver.Value(early_deviation[i]) for i in range(num_planes)]
+        late_dev_list = [solver.Value(late_deviation[i]) for i in range(num_planes)]
+        penalty_list = [early_dev_list[i]*planes_data[i]['penalty_early'] + late_dev_list[i]*planes_data[i]['penalty_late'] 
+                        for i in range(num_planes)]
+
+        plane_ids2 = [str(i) for i in range(num_planes) if early_dev_list[i] > 0 or late_dev_list[i] > 0]
+        l_times2 = [f"{solver.Value(landing_time[i]):.2f}" for i in range(num_planes) if early_dev_list[i] > 0 or late_dev_list[i] > 0]
+        targets2 = [f"{planes_data[i]['target_landing_time']:.2f}" for i in range(num_planes) if early_dev_list[i] > 0 or late_dev_list[i] > 0]
+        early_dev_str = [f"{early_dev_list[i]:.2f}" for i in range(num_planes) if early_dev_list[i] > 0 or late_dev_list[i] > 0]
+        late_dev_str = [f"{late_dev_list[i]:.2f}" for i in range(num_planes) if early_dev_list[i] > 0 or late_dev_list[i] > 0]
+        penalty_str = [f"{penalty_list[i]:.2f}" for i in range(num_planes) if early_dev_list[i] > 0 or late_dev_list[i] > 0]
+
+        w_plane2 = max(len("Plane"), max(len(pid) for pid in plane_ids2) if plane_ids2 else 0)
+        w_landing2 = max(len("Landing Time"), max(len(lt) for lt in l_times2) if l_times2 else 0)
+        w_target2 = max(len("Target"), max(len(t) for t in targets2) if targets2 else 0)
+        w_early = max(len("Early Dev"), max(len(ed) for ed in early_dev_str) if early_dev_str else 0)
+        w_late = max(len("Late Dev"), max(len(ld) for ld in late_dev_str) if late_dev_str else 0)
+        w_penalty = max(len("Penalty"), max(len(pen) for pen in penalty_str) if penalty_str else 0)
+
         print("\n-> Planes that did not land on the target time:")
-        print(f"{'Plane':>5} | {'Landing Time':>12} | {'Target':>6} | {'Early Dev':>9} | {'Late Dev':>8} | {'Penalty':>8}")
-        print("-" * 65)
+        header2 = f"{'Plane':>{w_plane2}} | {'Landing Time':>{w_landing2}} | {'Target':>{w_target2}} | {'Early Dev':>{w_early}} | {'Late Dev':>{w_late}} | {'Penalty':>{w_penalty}}"
+        print(header2)
+        print("-" * len(header2))
 
         any_missed = False
         for i in range(num_planes):
-            e_ = solver.Value(early_deviation[i])
-            l_ = solver.Value(late_deviation[i])
-
-            if e_ > 0 or l_ > 0:
+            if early_dev_list[i] > 0 or late_dev_list[i] > 0:
                 any_missed = True
-                penalty = e_ * planes_data[i]["penalty_early"] + l_ * planes_data[i]["penalty_late"]
-                lt = solver.Value(landing_time[i])
-                target_t = planes_data[i]["target_landing_time"]
-                print(f"{i:5d} | {lt:12.2f} | {target_t:6.2f} | {e_:9.2f} | {l_:8.2f} | {penalty:8.2f}")
+                print(f"{i:>{w_plane2}} | {solver.Value(landing_time[i]):>{w_landing2}.2f} | "
+                      f"{planes_data[i]['target_landing_time']:>{w_target2}.2f} | "
+                      f"{early_dev_list[i]:>{w_early}.2f} | {late_dev_list[i]:>{w_late}.2f} | "
+                      f"{penalty_list[i]:>{w_penalty}.2f}")
 
-        # (Opcional) se quiseres manter o mesmo "silêncio" do MIP quando não há desvios,
-        # remove este bloco.
         if not any_missed:
             print("(none)")
 
@@ -239,9 +261,9 @@ def solve_single_runway_cp(num_planes, planes_data, separation_times,
 
 def create_cp_model_multiple_runway(num_planes, num_runways, planes_data, separation_times, separation_times_between_runways):
     print("=" * 60)
-    print("\t\t     Creating CP model") 
+    print("\t\t     Creating CP model")
     print("=" * 60, "\n")
-    
+
     # Create the CP-SAT model
     model = cp_model.CpModel()
 
@@ -293,7 +315,7 @@ def create_cp_model_multiple_runway(num_planes, num_runways, planes_data, separa
                 # For j <= i, we can store None (or a dummy variable)
                 row.append(None)
         before_ij.append(row)
-    
+
     # 'runway[i]' is the index of the runway on which plane i lands
     runway_i = [model.NewIntVar(0, num_runways - 1, f"runway_{i}") for i in range(num_planes)]
 
@@ -335,7 +357,7 @@ def create_cp_model_multiple_runway(num_planes, num_runways, planes_data, separa
             if j > i:
                 before_ij_var = before_ij[i][j]
                 before_ji_var = before_ij_var.Not()
-    
+
     # ------------------------------------------------------------
     # Reified equality: same_runway[i][j] <-> (runway_i[i] == runway_i[j])
     # Only for i < j
@@ -393,7 +415,7 @@ def create_cp_model_multiple_runway(num_planes, num_runways, planes_data, separa
             model.Add(landing_time[i] >= landing_time[j] + S_ji).OnlyEnforceIf([before_ji_var, b_same])
             model.Add(landing_time[i] >= landing_time[j] + s_ji).OnlyEnforceIf([before_ji_var, b_same.Not()])
 
-            
+
     # ------------------------------------------------------------------
     # 5) OBJECTIVE FUNCTION
     # ------------------------------------------------------------------
@@ -417,12 +439,11 @@ def create_cp_model_multiple_runway(num_planes, num_runways, planes_data, separa
 
     return model, variables
 
-
-def solve_multiple_runways_cp(num_planes, num_runways, planes_data, separation_times, separation_times_between_runways,
-                           decision_strategies=None, hint=False,
-                           search_strategy=cp_model.AUTOMATIC_SEARCH):
+def solve_multiple_runways_cp(num_planes, num_runways, planes_data, separation_times, separation_times_between_runways, decision_strategies=None, hint=False, search_strategy=cp_model.AUTOMATIC_SEARCH):
     """Builds and solves the multiple-runway CP model with a permutation approach."""
-    model, vars_ = create_cp_model_multiple_runway(num_planes, num_runways, planes_data, separation_times, separation_times_between_runways)
+    model, vars_ = create_cp_model_multiple_runway(
+        num_planes, num_runways, planes_data, separation_times, separation_times_between_runways
+    )
 
     if hint:
         for i in range(num_planes):
@@ -430,17 +451,15 @@ def solve_multiple_runways_cp(num_planes, num_runways, planes_data, separation_t
 
     # Create solver instance
     solver = cp_model.CpSolver()
-
-    # Set search strategy
     solver.parameters.search_branching = search_strategy
 
     print("-> Number of decision variables created:", len(model.Proto().variables))
     print("-> Number of constraints:", len(model.Proto().constraints))
-
     print("\n" + "=" * 60)
     print("\t\t\tSolving CP")
     print("=" * 60, "\n")
 
+    # Apply decision strategies if provided
     if decision_strategies:
         for strategy in decision_strategies:
             var_names = strategy["variables"]
@@ -467,41 +486,67 @@ def solve_multiple_runways_cp(num_planes, num_runways, planes_data, separation_t
     late_deviation = vars_["late_deviation"]
     runway_i = vars_["runway_i"]
 
-    # ------------------------------------------------------------------
-    # Prints iguais ao MIP (tabelas + custo), adaptados ao CP-SAT
-    # ------------------------------------------------------------------
     if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
-        # Print all landing times
-        print("-> Landing times of all planes:")
-        print(f"{'Plane':>5} | {'Landing Time':>12} | {'Earliest':>8} | {'Target':>6} | {'Latest':>6} | {'Runway':>7}")
-        print("-" * 55)
-        for i in range(num_planes):
-            lt = solver.Value(landing_time[i])
-            e_i = planes_data[i]["earliest_landing_time"]
-            t_i = planes_data[i]["target_landing_time"]
-            l_i = planes_data[i]["latest_landing_time"]
-            r_i = solver.Value(runway_i[i])
-            print(f"{i:5d} | {lt:12.2f} | {e_i:8.2f} | {t_i:6.2f} | {l_i:6.2f} | {r_i:7d}")
+        plane_ids = [str(i) for i in range(num_planes)]
+        l_times = [f"{solver.Value(landing_time[i]):.2f}" for i in range(num_planes)]
+        earliest = [f"{planes_data[i]['earliest_landing_time']:.2f}" for i in range(num_planes)]
+        targets = [f"{planes_data[i]['target_landing_time']:.2f}" for i in range(num_planes)]
+        latest = [f"{planes_data[i]['latest_landing_time']:.2f}" for i in range(num_planes)]
+        runways = [str(solver.Value(runway_i[i])) for i in range(num_planes)]
 
-        # Print planes that did not land on target time
+        w_plane = max(len("Plane"), max(len(pid) for pid in plane_ids))
+        w_landing = max(len("Landing Time"), max(len(lt) for lt in l_times))
+        w_earliest = max(len("Earliest"), max(len(e) for e in earliest))
+        w_target = max(len("Target"), max(len(t) for t in targets))
+        w_latest = max(len("Latest"), max(len(l) for l in latest))
+        w_runway = max(len("Runway"), max(len(rw) for rw in runways))
+
+        print("-> Landing times of all planes:")
+        header = f"{'Plane':>{w_plane}} | {'Landing Time':>{w_landing}} | {'Earliest':>{w_earliest}} | {'Target':>{w_target}} | {'Latest':>{w_latest}} | {'Runway':>{w_runway}}"
+        print(header)
+        print("-" * len(header))
+
+        for i in range(num_planes):
+            print(f"{i:>{w_plane}} | {solver.Value(landing_time[i]):>{w_landing}.2f} | "
+                  f"{planes_data[i]['earliest_landing_time']:>{w_earliest}.2f} | "
+                  f"{planes_data[i]['target_landing_time']:>{w_target}.2f} | "
+                  f"{planes_data[i]['latest_landing_time']:>{w_latest}.2f} | "
+                  f"{solver.Value(runway_i[i]):>{w_runway}d}")
+
+        # Planes that did not land on target time
+        early_dev_list = [solver.Value(early_deviation[i]) for i in range(num_planes)]
+        late_dev_list = [solver.Value(late_deviation[i]) for i in range(num_planes)]
+        penalty_list = [early_dev_list[i]*planes_data[i]['penalty_early'] + late_dev_list[i]*planes_data[i]['penalty_late'] 
+                        for i in range(num_planes)]
+
+        plane_ids2 = [str(i) for i in range(num_planes) if early_dev_list[i] > 0 or late_dev_list[i] > 0]
+        l_times2 = [f"{solver.Value(landing_time[i]):.2f}" for i in range(num_planes) if early_dev_list[i] > 0 or late_dev_list[i] > 0]
+        targets2 = [f"{planes_data[i]['target_landing_time']:.2f}" for i in range(num_planes) if early_dev_list[i] > 0 or late_dev_list[i] > 0]
+        early_dev_str = [f"{early_dev_list[i]:.2f}" for i in range(num_planes) if early_dev_list[i] > 0 or late_dev_list[i] > 0]
+        late_dev_str = [f"{late_dev_list[i]:.2f}" for i in range(num_planes) if early_dev_list[i] > 0 or late_dev_list[i] > 0]
+        penalty_str = [f"{penalty_list[i]:.2f}" for i in range(num_planes) if early_dev_list[i] > 0 or late_dev_list[i] > 0]
+
+        w_plane2 = max(len("Plane"), max(len(pid) for pid in plane_ids2) if plane_ids2 else 0)
+        w_landing2 = max(len("Landing Time"), max(len(lt) for lt in l_times2) if l_times2 else 0)
+        w_target2 = max(len("Target"), max(len(t) for t in targets2) if targets2 else 0)
+        w_early = max(len("Early Dev"), max(len(ed) for ed in early_dev_str) if early_dev_str else 0)
+        w_late = max(len("Late Dev"), max(len(ld) for ld in late_dev_str) if late_dev_str else 0)
+        w_penalty = max(len("Penalty"), max(len(pen) for pen in penalty_str) if penalty_str else 0)
+
         print("\n-> Planes that did not land on the target time:")
-        print(f"{'Plane':>5} | {'Landing Time':>12} | {'Target':>6} | {'Early Dev':>9} | {'Late Dev':>8} | {'Penalty':>8}")
-        print("-" * 65)
+        header2 = f"{'Plane':>{w_plane2}} | {'Landing Time':>{w_landing2}} | {'Target':>{w_target2}} | {'Early Dev':>{w_early}} | {'Late Dev':>{w_late}} | {'Penalty':>{w_penalty}}"
+        print(header2)
+        print("-" * len(header2))
 
         any_missed = False
         for i in range(num_planes):
-            e_ = solver.Value(early_deviation[i])
-            l_ = solver.Value(late_deviation[i])
-
-            if e_ > 0 or l_ > 0:
+            if early_dev_list[i] > 0 or late_dev_list[i] > 0:
                 any_missed = True
-                penalty = e_ * planes_data[i]["penalty_early"] + l_ * planes_data[i]["penalty_late"]
-                lt = solver.Value(landing_time[i])
-                target_t = planes_data[i]["target_landing_time"]
-                print(f"{i:5d} | {lt:12.2f} | {target_t:6.2f} | {e_:9.2f} | {l_:8.2f} | {penalty:8.2f}")
+                print(f"{i:>{w_plane2}} | {solver.Value(landing_time[i]):>{w_landing2}.2f} | "
+                      f"{planes_data[i]['target_landing_time']:>{w_target2}.2f} | "
+                      f"{early_dev_list[i]:>{w_early}.2f} | {late_dev_list[i]:>{w_late}.2f} | "
+                      f"{penalty_list[i]:>{w_penalty}.2f}")
 
-        # (Opcional) se quiseres manter o mesmo "silêncio" do MIP quando não há desvios,
-        # remove este bloco.
         if not any_missed:
             print("(none)")
 
