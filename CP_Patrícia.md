@@ -53,7 +53,7 @@ ri∈{1,…,R}: pista atribuída ao avião 𝑖
 
 ### Constraints
 Pares de ordem fixa:
-(ri​ dif rj​)⇒xj​≥xi​+Sij​∀(i,j)∈V
+(ri​ = rj​)⇒xj​≥xi​+Sij​∀(i,j)∈V
 (ri​ dif rj​)⇒xj​≥xi​+sij​∀(i,j)∈V
 
 Pares de ordem incerta:

@@ -6,9 +6,9 @@ To-Do List: (at least)
 - [X] Test of the model
 
   CP:
-- [ ] Design of the model
-- [ ] Implementation of the model
-- [ ] Test of the model
+- [X] Design of the model
+- [X] Implementation of the model
+- [X] Test of the model
 
   Comparison between the MIP and CP models:
 - [ ] Comparing both the solutions (to check for correctness)
