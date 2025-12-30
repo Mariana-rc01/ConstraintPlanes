@@ -1,10 +1,8 @@
 from ortools.sat.python import cp_model
 import psutil
 
-# ----------------------------
-# SINGLE_RUNWAY
-# ----------------------------
-
+# Single Runway
+# Model
 def create_cp_model_single_runway(num_planes, planes_data, separation_times):
     print("=" * 60)
     print("\t\t     Creating CP model")
@@ -13,18 +11,14 @@ def create_cp_model_single_runway(num_planes, planes_data, separation_times):
     # Create the CP-SAT model
     model = cp_model.CpModel()
 
-    # ------------------------------------------------------------------
     # 1) EXTRACT RELEVANT DATA INTO ARRAYS (for convenience)
-    # ------------------------------------------------------------------
     E = [p["earliest_landing_time"] for p in planes_data]  # Earliest landing times
     T = [p["target_landing_time"]   for p in planes_data]  # Target landing times
     L = [p["latest_landing_time"]   for p in planes_data]  # Latest landing times
     cost_e = [p["penalty_early"]    for p in planes_data]  # Penalty for early_deviation
     cost_l = [p["penalty_late"]     for p in planes_data]  # Penalty for late_deviation
 
-    # ------------------------------------------------------------------
     # 2) VARIABLE CREATION
-    # ------------------------------------------------------------------
 
     # 'xi' is the time plane i actually lands
     landing_time = [
@@ -62,10 +56,7 @@ def create_cp_model_single_runway(num_planes, planes_data, separation_times):
                 row.append(None)
         before_ij.append(row)
 
-    # ------------------------------------------------------------------
     # 3) SETS U, V, W
-    # ------------------------------------------------------------------
-
     # Sets U, V, W
     W, U, V = [], [], []
     for i in range(num_planes):
@@ -83,9 +74,7 @@ def create_cp_model_single_runway(num_planes, planes_data, separation_times):
                     U.append((i, j))
 
 
-    # ------------------------------------------------------------------
     # 4) CONSTRAINTS
-    # ------------------------------------------------------------------
     for i in range(num_planes):
         # Landing time must be within [earliest, latest]
         model.Add(landing_time[i] >= E[i])
@@ -113,9 +102,7 @@ def create_cp_model_single_runway(num_planes, planes_data, separation_times):
             model.Add(landing_time[j] >= landing_time[i] + S_ij).OnlyEnforceIf(before_ij_var)
             model.Add(landing_time[i] >= landing_time[j] + S_ji).OnlyEnforceIf(before_ij_var.Not())
 
-    # ------------------------------------------------------------------
     # 5) OBJECTIVE FUNCTION
-    # ------------------------------------------------------------------
     cost_terms = []
     for i in range(num_planes):
         cost_terms.append(cost_e[i] * early_deviation[i])
@@ -123,9 +110,7 @@ def create_cp_model_single_runway(num_planes, planes_data, separation_times):
 
     model.Minimize(sum(cost_terms))
 
-    # ------------------------------------------------------------------
     # 6) RETURN MODEL AND VARIABLES
-    # ------------------------------------------------------------------
     variables = {
         "landing_time": landing_time,
         "early_deviation": early_deviation,
@@ -135,7 +120,7 @@ def create_cp_model_single_runway(num_planes, planes_data, separation_times):
 
     return model, variables
 
-
+# Solver
 def solve_single_runway_cp(num_planes, planes_data, separation_times,
                            decision_strategies=None, hint=False,
                            search_strategy=cp_model.AUTOMATIC_SEARCH):
@@ -253,12 +238,11 @@ def solve_single_runway_cp(num_planes, planes_data, separation_times,
     else:
         print("\n-> No feasible/optimal solution found. Status:", solver.StatusName(status))
 
-    return solver, model, vars_
+    metrics = {}
+    return solver, model, vars_, metrics
 
-# ----------------------------
-# MULTIPLE_RUNWAY
-# ----------------------------
-
+# Multiples Runways
+# Model
 def create_cp_model_multiple_runway(num_planes, num_runways, planes_data, separation_times, separation_times_between_runways):
     print("=" * 60)
     print("\t\t     Creating CP model")
@@ -267,18 +251,14 @@ def create_cp_model_multiple_runway(num_planes, num_runways, planes_data, separa
     # Create the CP-SAT model
     model = cp_model.CpModel()
 
-    # ------------------------------------------------------------------
     # 1) EXTRACT RELEVANT DATA INTO ARRAYS (for convenience)
-    # ------------------------------------------------------------------
     E = [p["earliest_landing_time"] for p in planes_data]  # Earliest landing times
     T = [p["target_landing_time"]   for p in planes_data]  # Target landing times
     L = [p["latest_landing_time"]   for p in planes_data]  # Latest landing times
     cost_e = [p["penalty_early"]    for p in planes_data]  # Penalty for early_deviation
     cost_l = [p["penalty_late"]     for p in planes_data]  # Penalty for late_deviation
 
-    # ------------------------------------------------------------------
     # 2) VARIABLE CREATION
-    # ------------------------------------------------------------------
 
     # 'xi' is the time plane i actually lands
     landing_time = [
@@ -319,10 +299,7 @@ def create_cp_model_multiple_runway(num_planes, num_runways, planes_data, separa
     # 'runway[i]' is the index of the runway on which plane i lands
     runway_i = [model.NewIntVar(0, num_runways - 1, f"runway_{i}") for i in range(num_planes)]
 
-    # ------------------------------------------------------------------
     # 3) SETS U, V, W
-    # ------------------------------------------------------------------
-
     # Sets U, V, W
     W, U, V = [], [], []
     for i in range(num_planes):
@@ -340,9 +317,7 @@ def create_cp_model_multiple_runway(num_planes, num_runways, planes_data, separa
                     U.append((i, j))
 
 
-    # ------------------------------------------------------------------
     # 4) CONSTRAINTS
-    # ------------------------------------------------------------------
     for i in range(num_planes):
         # Landing time must be within [earliest, latest]
         model.Add(landing_time[i] >= E[i])
@@ -358,10 +333,8 @@ def create_cp_model_multiple_runway(num_planes, num_runways, planes_data, separa
                 before_ij_var = before_ij[i][j]
                 before_ji_var = before_ij_var.Not()
 
-    # ------------------------------------------------------------
     # Reified equality: same_runway[i][j] <-> (runway_i[i] == runway_i[j])
     # Only for i < j
-    # ------------------------------------------------------------
     same_runway = [[None] * num_planes for _ in range(num_planes)]
     for i in range(num_planes):
         for j in range(i + 1, num_planes):
@@ -380,9 +353,7 @@ def create_cp_model_multiple_runway(num_planes, num_runways, planes_data, separa
         else:
             return same_runway[j][i]
 
-    # ------------------------------------------------------------
     # V constraints
-    # ------------------------------------------------------------
     for i, j in V:
         S_ij = separation_times[i][j]
         s_ij = separation_times_between_runways[i][j]
@@ -392,9 +363,7 @@ def create_cp_model_multiple_runway(num_planes, num_runways, planes_data, separa
         model.Add(landing_time[j] >= landing_time[i] + S_ij).OnlyEnforceIf(b_same)
         model.Add(landing_time[j] >= landing_time[i] + s_ij).OnlyEnforceIf(b_same.Not())
 
-    # ------------------------------------------------------------
     # U constraints
-    # ------------------------------------------------------------
     for i, j in U:
         if i < j:
             S_ij = separation_times[i][j]
@@ -402,8 +371,8 @@ def create_cp_model_multiple_runway(num_planes, num_runways, planes_data, separa
             s_ij = separation_times_between_runways[i][j]
             s_ji = separation_times_between_runways[j][i]
 
-            before_ij_var = before_ij[i][j]        # existe porque i<j
-            before_ji_var = before_ij_var.Not()    # <-- FIX (não usar before_ij[j][i])
+            before_ij_var = before_ij[i][j]
+            before_ji_var = before_ij_var.Not()
 
             b_same = get_same_runway_bool(i, j)
 
@@ -416,9 +385,7 @@ def create_cp_model_multiple_runway(num_planes, num_runways, planes_data, separa
             model.Add(landing_time[i] >= landing_time[j] + s_ji).OnlyEnforceIf([before_ji_var, b_same.Not()])
 
 
-    # ------------------------------------------------------------------
     # 5) OBJECTIVE FUNCTION
-    # ------------------------------------------------------------------
     cost_terms = []
     for i in range(num_planes):
         cost_terms.append(cost_e[i] * early_deviation[i])
@@ -426,9 +393,7 @@ def create_cp_model_multiple_runway(num_planes, num_runways, planes_data, separa
 
     model.Minimize(sum(cost_terms))
 
-    # ------------------------------------------------------------------
     # 6) RETURN MODEL AND VARIABLES
-    # ------------------------------------------------------------------
     variables = {
         "landing_time": landing_time,
         "early_deviation": early_deviation,
@@ -439,6 +404,7 @@ def create_cp_model_multiple_runway(num_planes, num_runways, planes_data, separa
 
     return model, variables
 
+# Solver
 def solve_multiple_runways_cp(num_planes, num_runways, planes_data, separation_times, separation_times_between_runways, decision_strategies=None, hint=False, search_strategy=cp_model.AUTOMATIC_SEARCH):
     """Builds and solves the multiple-runway CP model with a permutation approach."""
     model, vars_ = create_cp_model_multiple_runway(
@@ -558,4 +524,6 @@ def solve_multiple_runways_cp(num_planes, num_runways, planes_data, separation_t
     else:
         print("\n-> No feasible/optimal solution found. Status:", solver.StatusName(status))
 
-    return solver, model, vars_
+    metrics = {}
+
+    return solver, model, vars_, metrics

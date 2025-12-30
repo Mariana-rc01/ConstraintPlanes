@@ -2,8 +2,8 @@
     "MIP Single": [
         {
             "file": "airland1.txt",
-            "execution_time": 0.19563937187194824,
-            "memory_usage_MB": 0.006078,
+            "execution_time": 0.1933605670928955,
+            "memory_usage_MB": 0.002333,
             "num_variables": 120,
             "num_constraints": 205,
             "total_penalty": 700.0,
@@ -11,8 +11,8 @@
         },
         {
             "file": "airland2.txt",
-            "execution_time": 0.375643253326416,
-            "memory_usage_MB": 0.010015,
+            "execution_time": 0.3873775005340576,
+            "memory_usage_MB": 0.009804,
             "num_variables": 255,
             "num_constraints": 420,
             "total_penalty": 1480.0,
@@ -20,41 +20,403 @@
         },
         {
             "file": "airland3.txt",
-            "execution_time": 0.6305396556854248,
-            "memory_usage_MB": 0.009815,
+            "execution_time": 0.6072478294372559,
+            "memory_usage_MB": 0.009604,
             "num_variables": 440,
             "num_constraints": 710,
             "total_penalty": 820.0,
             "num_branch_and_bound_nodes": 8
+        },
+        {
+            "file": "airland4.txt",
+            "execution_time": 7.194671869277954,
+            "memory_usage_MB": 0.010543,
+            "num_variables": 440,
+            "num_constraints": 710,
+            "total_penalty": 2520.0,
+            "num_branch_and_bound_nodes": 4956
+        },
+        {
+            "file": "airland5.txt",
+            "execution_time": 29.562054872512817,
+            "memory_usage_MB": 0.011322,
+            "num_variables": 440,
+            "num_constraints": 710,
+            "total_penalty": 3100.0,
+            "num_branch_and_bound_nodes": 38018
+        },
+        {
+            "file": "airland6.txt",
+            "execution_time": 0.003584146499633789,
+            "memory_usage_MB": 8e-06,
+            "num_variables": 960,
+            "num_constraints": 1166,
+            "total_penalty": 24442.0,
+            "num_branch_and_bound_nodes": 0
+        },
+        {
+            "file": "airland7.txt",
+            "execution_time": 0.5021240711212158,
+            "memory_usage_MB": 0.025541,
+            "num_variables": 2024,
+            "num_constraints": 2304,
+            "total_penalty": 1550.0,
+            "num_branch_and_bound_nodes": 1575
+        },
+        {
+            "file": "airland8.txt",
+            "execution_time": 3.3679957389831543,
+            "memory_usage_MB": 0.021123,
+            "num_variables": 2600,
+            "num_constraints": 4017,
+            "total_penalty": 1950.0,
+            "num_branch_and_bound_nodes": 20
         }
     ],
     "MIP Multiple": [
         {
             "file": "airland1.txt",
-            "execution_time": 0.06657528877258301,
-            "memory_usage_MB": 0.00061,
+            "num_runways": 1,
+            "execution_time": 0.10056352615356445,
+            "memory_usage_MB": 0.001251,
+            "num_variables": 220,
+            "num_constraints": 305,
+            "total_penalty": 700.0,
+            "num_branch_and_bound_nodes": 22
+        },
+        {
+            "file": "airland1.txt",
+            "num_runways": 2,
+            "execution_time": 0.0448908805847168,
+            "memory_usage_MB": 8e-06,
             "num_variables": 230,
             "num_constraints": 350,
             "total_penalty": 90.0,
             "num_branch_and_bound_nodes": 5
         },
         {
+            "file": "airland1.txt",
+            "num_runways": 3,
+            "execution_time": 0.10483479499816895,
+            "memory_usage_MB": 0.015918,
+            "num_variables": 240,
+            "num_constraints": 395,
+            "total_penalty": 0.0,
+            "num_branch_and_bound_nodes": 23
+        },
+        {
             "file": "airland2.txt",
-            "execution_time": 0.3796265125274658,
-            "memory_usage_MB": 0.01011,
+            "num_runways": 1,
+            "execution_time": 0.7347371578216553,
+            "memory_usage_MB": 0.007543,
+            "num_variables": 480,
+            "num_constraints": 645,
+            "total_penalty": 1480.0,
+            "num_branch_and_bound_nodes": 459
+        },
+        {
+            "file": "airland2.txt",
+            "num_runways": 2,
+            "execution_time": 0.37088727951049805,
+            "memory_usage_MB": 0.010299,
             "num_variables": 495,
             "num_constraints": 750,
             "total_penalty": 209.9999999999709,
             "num_branch_and_bound_nodes": 624
         },
         {
+            "file": "airland2.txt",
+            "num_runways": 3,
+            "execution_time": 0.2171497344970703,
+            "memory_usage_MB": 0.0088,
+            "num_variables": 510,
+            "num_constraints": 855,
+            "total_penalty": 0.0,
+            "num_branch_and_bound_nodes": 73
+        },
+        {
             "file": "airland3.txt",
-            "execution_time": 0.37780332565307617,
-            "memory_usage_MB": 0.009586,
+            "num_runways": 1,
+            "execution_time": 0.5155153274536133,
+            "memory_usage_MB": 0.008441,
+            "num_variables": 840,
+            "num_constraints": 1110,
+            "total_penalty": 820.0,
+            "num_branch_and_bound_nodes": 10
+        },
+        {
+            "file": "airland3.txt",
+            "num_runways": 2,
+            "execution_time": 0.3685910701751709,
+            "memory_usage_MB": 0.010752,
             "num_variables": 860,
             "num_constraints": 1300,
             "total_penalty": 60.0,
             "num_branch_and_bound_nodes": 342
+        },
+        {
+            "file": "airland3.txt",
+            "num_runways": 3,
+            "execution_time": 0.31412696838378906,
+            "memory_usage_MB": 0.009874,
+            "num_variables": 880,
+            "num_constraints": 1490,
+            "total_penalty": 0.0,
+            "num_branch_and_bound_nodes": 15
+        },
+        {
+            "file": "airland4.txt",
+            "num_runways": 1,
+            "execution_time": 7.4362311363220215,
+            "memory_usage_MB": 0.009339,
+            "num_variables": 840,
+            "num_constraints": 1110,
+            "total_penalty": 2520.0,
+            "num_branch_and_bound_nodes": 5169
+        },
+        {
+            "file": "airland4.txt",
+            "num_runways": 2,
+            "execution_time": 19.28976583480835,
+            "memory_usage_MB": 0.012511,
+            "num_variables": 860,
+            "num_constraints": 1300,
+            "total_penalty": 639.9999999999709,
+            "num_branch_and_bound_nodes": 16593
+        },
+        {
+            "file": "airland4.txt",
+            "num_runways": 3,
+            "execution_time": 6.6066575050354,
+            "memory_usage_MB": 0.011454,
+            "num_variables": 880,
+            "num_constraints": 1490,
+            "total_penalty": 130.0,
+            "num_branch_and_bound_nodes": 5047
+        },
+        {
+            "file": "airland4.txt",
+            "num_runways": 4,
+            "execution_time": 0.8790030479431152,
+            "memory_usage_MB": 0.010104,
+            "num_variables": 900,
+            "num_constraints": 1680,
+            "total_penalty": 0.0,
+            "num_branch_and_bound_nodes": 261
+        },
+        {
+            "file": "airland5.txt",
+            "num_runways": 1,
+            "execution_time": 32.30592107772827,
+            "memory_usage_MB": 0.009342,
+            "num_variables": 840,
+            "num_constraints": 1110,
+            "total_penalty": 3100.0,
+            "num_branch_and_bound_nodes": 34510
+        },
+        {
+            "file": "airland5.txt",
+            "num_runways": 2,
+            "execution_time": 22.24360966682434,
+            "memory_usage_MB": 0.012735,
+            "num_variables": 860,
+            "num_constraints": 1300,
+            "total_penalty": 650.0,
+            "num_branch_and_bound_nodes": 25772
+        },
+        {
+            "file": "airland5.txt",
+            "num_runways": 3,
+            "execution_time": 7.603883743286133,
+            "memory_usage_MB": 0.010764,
+            "num_variables": 880,
+            "num_constraints": 1490,
+            "total_penalty": 170.0,
+            "num_branch_and_bound_nodes": 4468
+        },
+        {
+            "file": "airland5.txt",
+            "num_runways": 4,
+            "execution_time": 0.8748664855957031,
+            "memory_usage_MB": 0.010104,
+            "num_variables": 900,
+            "num_constraints": 1680,
+            "total_penalty": 0.0,
+            "num_branch_and_bound_nodes": 421
+        },
+        {
+            "file": "airland6.txt",
+            "num_runways": 1,
+            "execution_time": 0.0065097808837890625,
+            "memory_usage_MB": 8e-06,
+            "num_variables": 1860,
+            "num_constraints": 2066,
+            "total_penalty": 24442.0,
+            "num_branch_and_bound_nodes": 0
+        },
+        {
+            "file": "airland6.txt",
+            "num_runways": 2,
+            "execution_time": 1.2199780941009521,
+            "memory_usage_MB": 0.024438,
+            "num_variables": 1890,
+            "num_constraints": 2501,
+            "total_penalty": 554.0,
+            "num_branch_and_bound_nodes": 7
+        },
+        {
+            "file": "airland6.txt",
+            "num_runways": 3,
+            "execution_time": 0.2818446159362793,
+            "memory_usage_MB": 0.012977,
+            "num_variables": 1920,
+            "num_constraints": 2936,
+            "total_penalty": 0.0,
+            "num_branch_and_bound_nodes": 23
+        },
+        {
+            "file": "airland7.txt",
+            "num_runways": 1,
+            "execution_time": 0.5520443916320801,
+            "memory_usage_MB": 0.011327,
+            "num_variables": 3960,
+            "num_constraints": 4240,
+            "total_penalty": 1550.0,
+            "num_branch_and_bound_nodes": 1547
+        },
+        {
+            "file": "airland7.txt",
+            "num_runways": 2,
+            "execution_time": 0.022657394409179688,
+            "memory_usage_MB": 8e-06,
+            "num_variables": 4004,
+            "num_constraints": 5186,
+            "total_penalty": 0.0,
+            "num_branch_and_bound_nodes": 1
+        },
+        {
+            "file": "airland8.txt",
+            "num_runways": 1,
+            "execution_time": 2.863023042678833,
+            "memory_usage_MB": 0.034691,
+            "num_variables": 5100,
+            "num_constraints": 6517,
+            "total_penalty": 1950.0,
+            "num_branch_and_bound_nodes": 9
+        },
+        {
+            "file": "airland8.txt",
+            "num_runways": 2,
+            "execution_time": 9.97179365158081,
+            "memory_usage_MB": 0.019342,
+            "num_variables": 5150,
+            "num_constraints": 7742,
+            "total_penalty": 135.0,
+            "num_branch_and_bound_nodes": 3503
+        },
+        {
+            "file": "airland8.txt",
+            "num_runways": 3,
+            "execution_time": 22.37780523300171,
+            "memory_usage_MB": 0.015854,
+            "num_variables": 5200,
+            "num_constraints": 8967,
+            "total_penalty": 0.0,
+            "num_branch_and_bound_nodes": 758
+        }
+    ],
+    "CP Single": [
+        {
+            "file": "airland1.txt"
+        },
+        {
+            "file": "airland2.txt"
+        },
+        {
+            "file": "airland3.txt"
+        },
+        {
+            "file": "airland4.txt"
+        },
+        {
+            "file": "airland5.txt"
+        },
+        {
+            "file": "airland6.txt"
+        },
+        {
+            "file": "airland7.txt"
+        },
+        {
+            "file": "airland8.txt"
+        }
+    ],
+    "CP Multiple": [
+        {
+            "file": "airland1.txt",
+            "num_runways": 1
+        },
+        {
+            "file": "airland2.txt",
+            "num_runways": 1
+        },
+        {
+            "file": "airland3.txt",
+            "num_runways": 1
+        },
+        {
+            "file": "airland4.txt",
+            "num_runways": 1
+        },
+        {
+            "file": "airland5.txt",
+            "num_runways": 1
+        },
+        {
+            "file": "airland6.txt",
+            "num_runways": 1
+        },
+        {
+            "file": "airland7.txt",
+            "num_runways": 1
+        },
+        {
+            "file": "airland8.txt",
+            "num_runways": 1
+        }
+    ],
+    "Hybrid": [
+        {
+            "file": "airland1.txt",
+            "num_runways": 1
+        },
+        {
+            "file": "airland2.txt",
+            "num_runways": 1
+        },
+        {
+            "file": "airland3.txt",
+            "num_runways": 1
+        },
+        {
+            "file": "airland4.txt",
+            "num_runways": 1
+        },
+        {
+            "file": "airland5.txt",
+            "num_runways": 1
+        },
+        {
+            "file": "airland6.txt",
+            "num_runways": 1
+        },
+        {
+            "file": "airland7.txt",
+            "num_runways": 1
+        },
+        {
+            "file": "airland8.txt",
+            "num_runways": 1
         }
     ]
 }

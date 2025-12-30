@@ -204,7 +204,7 @@ def solve_single_runway_mip(num_planes, planes_data, separation_times, hint=Fals
 
     # Status
     if status == pywraplp.Solver.OPTIMAL:
-        print(f"\n-> Optimal Cost: {solver.Objective().Value()}")
+        print(f"\n-> Optimal Cost: {solver.Objective().Value():.2f}")
     elif status == pywraplp.Solver.FEASIBLE:
         print("\n-> No optimal solution found. Best feasible:", round(solver.ObjectiveValue(), 2))
     else:
@@ -218,7 +218,7 @@ def solve_single_runway_mip(num_planes, planes_data, separation_times, hint=Fals
         print(f"   - Memory Usage: {memory_usage:.4f} MB")
         print(f"   - Number of Variables: {perf.get_num_variables()}")
         print(f"   - Number of Constraints: {perf.get_num_constraints()}")
-        print(f"   - Total Penalty: {perf.get_total_penalty()}")
+        print(f"   - Total Penalty: {perf.get_total_penalty():.2f}")
         print(f"   - Number of Branch-and-Bound Nodes: {perf.get_num_branch_and_bound_nodes()}")
 
         metrics = {
@@ -477,7 +477,7 @@ def solve_multiple_runways_mip(num_planes, num_runways, planes_data, separation_
         print(f"   - Memory Usage: {memory_usage:.4f} MB")
         print(f"   - Number of Variables: {perf.get_num_variables()}")
         print(f"   - Number of Constraints: {perf.get_num_constraints()}")
-        print(f"   - Total Penalty: {perf.get_total_penalty()}")
+        print(f"   - Total Penalty: {perf.get_total_penalty():.2f}")
         print(f"   - Number of Branch-and-Bound Nodes: {perf.get_num_branch_and_bound_nodes()}")
         metrics = {
             "execution_time": exec_time,

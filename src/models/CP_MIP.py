@@ -236,6 +236,9 @@ def solve_hybrid_lbbd(num_planes, num_runways, planes_data, separation_times, se
                 # Benders Cut
                 master_model.Add(theta >= sp_cost_int).OnlyEnforceIf(is_same)
 
+    metrics = {}
+    return solver, master_model, metrics
+
 def print_solution(times, runways, cost, num_planes, planes_data):
     plane_ids = [str(i) for i in range(num_planes)]
     landing_times = [f"{times[i]:.2f}" for i in range(num_planes)]
