@@ -1,3 +1,5 @@
+import json, os
+
 def read_airland_file(filename):
     with open(filename, 'r') as file:
         lines = [line.strip() for line in file if line.strip()]
@@ -49,3 +51,78 @@ def generate_separation_between_runways(num_planes, num_runways, separation_same
                     separation_between_runways[i][j] = default_between_runways
 
     return separation_between_runways
+
+def save_solution(solver, variables, num_planes, data, solution_file, tag, dataset_name, num_runways=None, landing_times_override=None):
+
+    if landing_times_override is None:
+        landing_time_vars = variables["landing_time"]
+
+    # Load existing solutions
+    if os.path.exists(solution_file):
+        with open(solution_file, "r") as f:
+            solutions = json.load(f)
+    else:
+        solutions = {}
+
+    if tag not in solutions:
+        solutions[tag] = []
+
+    landing_times = []
+    penalty_planes = []
+
+    for i in range(num_planes):
+
+        if landing_times_override is not None:
+            t = round(landing_times_override[i],2)
+        elif tag.startswith("MIP"):
+            t = landing_time_vars[i].solution_value()
+        elif tag.startswith("CP"):
+            t = solver.Value(landing_time_vars[i])
+        else:
+            raise ValueError(f"Unknown tag format: {tag}")
+
+        earliest = round(data[i]["earliest_landing_time"],2)
+        target   = round(data[i]["target_landing_time"],2)
+        latest   = round(data[i]["latest_landing_time"],2)
+
+        landing_times.append({
+            "plane": i,
+            "landing_time": float(t),
+            "earliest": earliest,
+            "target": target,
+            "latest": latest
+        })
+
+        early = round(max(0.0, target - t),2)
+        late  = round(max(0.0, t - target),2)
+
+        if early > 0 or late > 0:
+            penalty_planes.append({
+                "plane": i,
+                "landing_time": float(t),
+                "target": target,
+                "early_deviation": float(early),
+                "late_deviation": float(late),
+                "penalty": float(
+                    early * data[i]["penalty_early"] +
+                    late  * data[i]["penalty_late"]
+                )
+            })
+
+    if num_runways is not None:
+        solutions[tag].append({
+            "file": dataset_name,
+            "num_runways": num_runways,
+            "landing_times": landing_times,
+            "penalty_planes": penalty_planes
+        })
+    else:
+        solutions[tag].append({
+            "file": dataset_name,
+            "landing_times": landing_times,
+            "penalty_planes": penalty_planes
+        })
+
+    with open(solution_file, "w") as f:
+        json.dump(solutions, f, indent=4)
+

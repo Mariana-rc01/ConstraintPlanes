@@ -237,7 +237,7 @@ def solve_hybrid_lbbd(num_planes, num_runways, planes_data, separation_times, se
                 master_model.Add(theta >= sp_cost_int).OnlyEnforceIf(is_same)
 
     metrics = {}
-    return solver, master_model, metrics
+    return solver, master_model, sp_times, metrics
 
 def print_solution(times, runways, cost, num_planes, planes_data):
     plane_ids = [str(i) for i in range(num_planes)]

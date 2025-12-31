@@ -226,7 +226,7 @@ def solve_single_runway_mip(num_planes, planes_data, separation_times, hint=Fals
             "memory_usage_MB": memory_usage,
             "num_variables": perf.get_num_variables(),
             "num_constraints": perf.get_num_constraints(),
-            "total_penalty": perf.get_total_penalty(),
+            "total_penalty": round(abs(perf.get_total_penalty()), 2),
             "num_branch_and_bound_nodes": perf.get_num_branch_and_bound_nodes()
         }
 
@@ -463,9 +463,9 @@ def solve_multiple_runways_mip(num_planes, num_runways, planes_data, separation_
 
     # Status
     if status == pywraplp.Solver.OPTIMAL:
-        print(f"\n-> Optimal Cost: {solver.Objective().Value():.2f}")
+        print(f"\n-> Optimal Cost: {abs(solver.Objective().Value()):.2f}")
     elif status == pywraplp.Solver.FEASIBLE:
-        print("\n-> No optimal solution found. Best feasible:", round(solver.ObjectiveValue(), 2))
+        print("\n-> No optimal solution found. Best feasible:", round(abs(solver.ObjectiveValue()), 2))
     else:
         print("\n-> No feasible/optimal solution found. Status:", solver.StatusName(status))
 
@@ -477,14 +477,14 @@ def solve_multiple_runways_mip(num_planes, num_runways, planes_data, separation_
         print(f"   - Memory Usage: {memory_usage:.4f} MB")
         print(f"   - Number of Variables: {perf.get_num_variables()}")
         print(f"   - Number of Constraints: {perf.get_num_constraints()}")
-        print(f"   - Total Penalty: {perf.get_total_penalty():.2f}")
+        print(f"   - Total Penalty: {abs(perf.get_total_penalty()):.2f}")
         print(f"   - Number of Branch-and-Bound Nodes: {perf.get_num_branch_and_bound_nodes()}")
         metrics = {
             "execution_time": exec_time,
             "memory_usage_MB": memory_usage,
             "num_variables": perf.get_num_variables(),
             "num_constraints": perf.get_num_constraints(),
-            "total_penalty": perf.get_total_penalty(),
+            "total_penalty": round(abs(perf.get_total_penalty()), 2),
             "num_branch_and_bound_nodes": perf.get_num_branch_and_bound_nodes()
         }
 
