@@ -263,7 +263,7 @@ def solve_single_runway_cp(num_planes, planes_data, separation_times,
         print(f"   - Best Objective Bound: {perf.get_best_objective_bound()}")
         print(f"   - Number of Variables: {perf.get_num_variables()}")
         print(f"   - Number of Constraints: {perf.get_num_constraints()}")
-    
+
         metrics = {
             "execution_time": perf.get_execution_time(),
             "memory_usage": memory_usage,
@@ -494,7 +494,7 @@ def solve_multiple_runways_cp(num_planes, num_runways, planes_data, separation_t
         tracemalloc.stop()
         # Convert to MB
         memory_usage = peak_mem / 10**6
-  
+
     landing_time = vars_["landing_time"]
     early_deviation = vars_["early_deviation"]
     late_deviation = vars_["late_deviation"]
@@ -584,7 +584,7 @@ def solve_multiple_runways_cp(num_planes, num_runways, planes_data, separation_t
         print(f"   - Best Objective Bound: {perf.get_best_objective_bound()}")
         print(f"   - Number of Variables: {perf.get_num_variables()}")
         print(f"   - Number of Constraints: {perf.get_num_constraints()}")
-    
+
         metrics = {
             "execution_time": perf.get_execution_time(),
             "memory_usage": memory_usage,
