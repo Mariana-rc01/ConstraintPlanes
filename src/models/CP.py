@@ -1,5 +1,7 @@
+import tracemalloc
+from others.performance import PerformanceCP
 from ortools.sat.python import cp_model
-import psutil
+import psutil, time
 
 # Single Runway
 # Model
@@ -123,7 +125,7 @@ def create_cp_model_single_runway(num_planes, planes_data, separation_times):
 # Solver
 def solve_single_runway_cp(num_planes, planes_data, separation_times,
                            decision_strategies=None, hint=False,
-                           search_strategy=cp_model.AUTOMATIC_SEARCH):
+                           search_strategy=cp_model.AUTOMATIC_SEARCH, performance = False):
     """Builds and solves the single-runway CP model with a permutation approach."""
     model, vars_ = create_cp_model_single_runway(
         num_planes, planes_data, separation_times
@@ -163,7 +165,18 @@ def solve_single_runway_cp(num_planes, planes_data, separation_times,
             )
 
     # Solve
+    if performance:
+        tracemalloc.start()
+        start_time = time.time()
+
     status = solver.Solve(model)
+
+    if performance:
+        exec_time = time.time() - start_time
+        current_mem, peak_mem = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        # Convert to MB
+        memory_usage = peak_mem / 10**6
 
     landing_time = vars_["landing_time"]
     early_deviation = vars_["early_deviation"]
@@ -238,8 +251,32 @@ def solve_single_runway_cp(num_planes, planes_data, separation_times,
     else:
         print("\n-> No feasible/optimal solution found. Status:", solver.StatusName(status))
 
-    metrics = {}
-    return solver, model, vars_, metrics
+    if performance:
+        perf = PerformanceCP(solver, model, status)
+        print("\n-> Performance Metrics:")
+        print(f"   - Execution Time (ms): {perf.get_execution_time()}")
+        print(f"   - Memory Usage: {memory_usage:.4f} MB")
+        print(f"   - Solution Status: {perf.get_solution_status()}")
+        print(f"   - Number of Conflicts: {perf.get_num_conflicts()}")
+        print(f"   - Number of Branches: {perf.get_num_branches()}")
+        print(f"   - Number of Booleans: {perf.get_num_booleans()}")
+        print(f"   - Best Objective Bound: {perf.get_best_objective_bound()}")
+        print(f"   - Number of Variables: {perf.get_num_variables()}")
+        print(f"   - Number of Constraints: {perf.get_num_constraints()}")
+    
+        metrics = {
+            "execution_time": perf.get_execution_time(),
+            "memory_usage": memory_usage,
+            "solution_status": perf.get_solution_status(),
+            "num_conflicts": perf.get_num_conflicts(),
+            "num_branches": perf.get_num_branches(),
+            "num_booleans": perf.get_num_booleans(),
+            "best_objective_bound": perf.get_best_objective_bound(),
+            "num_variables": perf.get_num_variables(),
+            "num_constraints": perf.get_num_constraints()
+        }
+
+    return solver, model, vars_, metrics if performance else None
 
 # Multiples Runways
 # Model
@@ -405,7 +442,7 @@ def create_cp_model_multiple_runway(num_planes, num_runways, planes_data, separa
     return model, variables
 
 # Solver
-def solve_multiple_runways_cp(num_planes, num_runways, planes_data, separation_times, separation_times_between_runways, decision_strategies=None, hint=False, search_strategy=cp_model.AUTOMATIC_SEARCH):
+def solve_multiple_runways_cp(num_planes, num_runways, planes_data, separation_times, separation_times_between_runways, decision_strategies=None, hint=False, search_strategy=cp_model.AUTOMATIC_SEARCH, performance = False):
     """Builds and solves the multiple-runway CP model with a permutation approach."""
     model, vars_ = create_cp_model_multiple_runway(
         num_planes, num_runways, planes_data, separation_times, separation_times_between_runways
@@ -445,8 +482,19 @@ def solve_multiple_runways_cp(num_planes, num_runways, planes_data, separation_t
             )
 
     # Solve
+    if performance:
+        tracemalloc.start()
+        start_time = time.time()
+
     status = solver.Solve(model)
 
+    if performance:
+        exec_time = time.time() - start_time
+        current_mem, peak_mem = tracemalloc.get_traced_memory()
+        tracemalloc.stop()
+        # Convert to MB
+        memory_usage = peak_mem / 10**6
+  
     landing_time = vars_["landing_time"]
     early_deviation = vars_["early_deviation"]
     late_deviation = vars_["late_deviation"]
@@ -524,6 +572,29 @@ def solve_multiple_runways_cp(num_planes, num_runways, planes_data, separation_t
     else:
         print("\n-> No feasible/optimal solution found. Status:", solver.StatusName(status))
 
-    metrics = {}
+    if performance:
+        perf = PerformanceCP(solver, model, status)
+        print("\n-> Performance Metrics:")
+        print(f"   - Execution Time (ms): {perf.get_execution_time()}")
+        print(f"   - Memory Usage: {memory_usage:.4f} MB")
+        print(f"   - Solution Status: {perf.get_solution_status()}")
+        print(f"   - Number of Conflicts: {perf.get_num_conflicts()}")
+        print(f"   - Number of Branches: {perf.get_num_branches()}")
+        print(f"   - Number of Booleans: {perf.get_num_booleans()}")
+        print(f"   - Best Objective Bound: {perf.get_best_objective_bound()}")
+        print(f"   - Number of Variables: {perf.get_num_variables()}")
+        print(f"   - Number of Constraints: {perf.get_num_constraints()}")
+    
+        metrics = {
+            "execution_time": perf.get_execution_time(),
+            "memory_usage": memory_usage,
+            "solution_status": perf.get_solution_status(),
+            "num_conflicts": perf.get_num_conflicts(),
+            "num_branches": perf.get_num_branches(),
+            "num_booleans": perf.get_num_booleans(),
+            "best_objective_bound": perf.get_best_objective_bound(),
+            "num_variables": perf.get_num_variables(),
+            "num_constraints": perf.get_num_constraints()
+        }
 
-    return solver, model, vars_, metrics
+    return solver, model, vars_, metrics if performance else None

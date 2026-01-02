@@ -16,7 +16,7 @@ To-Do List: (at least)
 
   Others:
 - [ ] Fazer gráfico das differentes formas de search strategies
-- [ ] Valor ótimo de multiple runways
+- [X] Valor ótimo de multiple runways
 - [X] Fazer junção do MIP com o CP -> ver melhor base matemática
 - [ ] Tentar fazer um gráfico que mostra o tempo a aumentar de forma exponencial quando o num_runways diminui
 
