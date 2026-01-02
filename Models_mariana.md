@@ -163,126 +163,149 @@ Usar no código:
 - Time to First Solution
 - Failures/Backtracks
 
-
 # Hybrid Logic-Based Benders Decomposition (LBBD)
 
-## 1. Motivation
-
-The Aircraft Landing Problem is a classic combinatorial optimization challenge classified as NP-Hard. It requires assigning aircraft to runways, determining the landing sequence, and scheduling precise landing times within specific time windows to minimize deviations from a target time .
+## 1. Motivation and Context
+The Aircraft Landing Problem (ALP) is a classic combinatorial optimization challenge classified as NP-Hard. It requires assigning aircraft to runways, determining the landing sequence, and scheduling precise landing times within specific time windows \([E_i, L_i]\) to minimize deviations from a target time \(T_i\).
 
 Traditional approaches often face significant computational hurdles:
 
-* **Pure Mixed-Integer Programming (MIP):** Relies heavily on "Big-M" constraints to model disjunctive logic (e.g., "Plane A lands before B" OR "B before A"). These constraints result in weak linear relaxations, causing the branch-and-bound search tree to explode in size for large instances.
-* **Pure Constraint Programming (CP):** While excellent at handling logical constraints and finding feasible sequences efficiently, CP often struggles to prove optimality in problems with complex objective functions involving continuous costs (penalties).
+- **Pure Mixed-Integer Programming (MIP):** Relies heavily on "Big-M" constraints to model disjunctive logic (e.g., "Plane A lands before B" OR "B before A"). These constraints result in weak linear relaxations, causing the branch-and-bound search tree to explode in size for large instances.
 
-To overcome these limitations, it was implemented a **Hybrid Logic-Based Benders Decomposition (LBBD)**. This approach combines Constraint Programming (CP) for discrete decisions and Linear Programming (LP) for continuous scheduling and cost evaluation.
+- **Pure Constraint Programming (CP):** While excellent at handling logical constraints and finding feasible sequences efficiently, CP often struggles to prove optimality in problems with complex objective functions involving continuous costs (penalties).
+
+To overcome these limitations, a **Hybrid Logic-Based Benders Decomposition (LBBD)** was implemented. This approach leverages the complementary strengths of both paradigms:
+
+- **CP:** Handles the combinatorial structure (sequencing and assignment).
+- **LP:** Handles the numerical optimization (precise timing).
 
 ## 2. The Core Idea: Decomposition
-
 The central concept of LBBD is to decompose the monolithic problem into two hierarchical levels that communicate iteratively:
 
-1. **The Master Problem (CP):** Acts as the "Architect." It decides the structure of the solution—which runway to use and the order of landing—without worrying about the exact millisecond of landing.
+- **The Master Problem (CP):** Acts as the "Architect." Decides the structure of the solution—runway assignments and landing order—using integer variables to enforce logical constraints.
 
-2. **The Subproblem (LP):** Acts as the "Surveyor." Given the fixed structure provided by the Master, it calculates the optimal landing times using efficient linear optimization.
+- **The Subproblem (LP):** Acts as the "Surveyor." Given the fixed structure from the Master, calculates optimal continuous landing times using linear optimization.
 
-3. **Benders Cuts (Feedback):** If the Master proposes a sequence that is infeasible or too expensive, the Subproblem generates a "Cut"—a mathematical constraint added to the Master Problem—effectively saying, *"Do not try this specific configuration again,"* or *"This configuration costs at least X."*
+- **Benders Cuts (Feedback):** If the Master proposes an infeasible or costly sequence, the Subproblem generates a cut—a constraint added to the Master—saying, e.g., "Do not try this specific configuration again" or "This configuration costs at least X."
 
-## 3. Mathematical Formulation
+## 3. Mathematical Formulation: Strengthened Hybrid LBBD
+This model differs from classical LBBD by including **proxy time variables** in the Master Problem. These variables allow the Master to estimate costs and ensure basic temporal feasibility before consulting the Subproblem, acting as a **Strengthened Master**.
 
-### 3.1. Indices and Sets
+### 3.1. Sets and Parameters
 
-Let:
+**Indices and Sets:**
+- \(P = \{1, \dots, P\}\): Set of aircraft.
+- \(R = \{1, \dots, R\}\): Set of available runways.
+- \(U\): Set of pairs \((i,j)\) where landing order is uncertain.
+- \(V\): Set of pairs \((i,j)\) where \(i\) precedes \(j\) (fixed order) but separation is not automatically guaranteed.
+- \(W\): Set of pairs \((i,j)\) where \(i\) precedes \(j\) and separation is implicitly guaranteed by time windows.
 
-P = {1,...,P} : Set of aircraft.
-R = {1,...,R} : Set of available runways.
-U : Set of pairs (i,j) where the landing order is uncertain.
-V : Set of pairs where i precedes j (fixed order), but separation is not automatically guaranteed.
-W : Set of pairs where i precedes j and separation is implicit (time windows do not overlap).
+**Parameters:**
+- \(E_i, L_i, T_i\): Time window \([E_i, L_i]\) and target time \(T_i\) for aircraft \(i\).
+- \(g_i, h_i\): Penalty costs per unit of time for earliness and lateness.
+- \(S_{ij}\): Minimum separation time if \(i\) precedes \(j\) on the same runway.
+- \(s_{ij}\): Minimum separation time if \(i\) precedes \(j\) on different runways.
 
-### 3.2. Parameters
-
-E_i, L_i, T_i : Earliest, Latest, and Target landing times for plane .
-g_i, h_i : Penalty costs per unit of time for earliness and lateness, respectively.
-S_ij : Required separation time if i precedes j on the **same runway**.
-s_ij : Required separation time if i precedes j on **different runways**.
-
-### 3.3. The Master Problem (CP - Strengthened)
-
-The Master Problem is modeled using Constraint Programming. Its goal is to minimize an auxiliary variable \theta, which represents the estimated lower bound of the total cost.
-
-**Unique Feature: Strengthened Formulation**
-Unlike standard Benders decomposition, where the Master is "blind" to time, our implementation includes **proxy time variables** (x_i^m). These are integer relaxations of the landing times. They allow the Master Problem to perform a preliminary feasibility check and cost estimation, drastically reducing the number of iterations required for convergence.
+### 3.2. Master Problem (CP - Strengthened)
+The Master decides sequencing and allocation, using relaxed (integer) time variables to strengthen the lower bound of the objective function.
 
 **Decision Variables:**
+- \(r_i \in R\): Runway assigned to aircraft \(i\).
+- \(y_{ij} \in \{0,1\}\): Precedence variable; 1 if \(i\) lands before \(j\) (for \((i,j) \in U\)).
+- \(\theta \ge 0\): Auxiliary variable for estimated total cost (Benders variable).
 
-r_i ∈ R : The runway assigned to plane i.
-y_ij ∈ {0,1} : Binary variable (mapped to `before` in code); 1 if plane i lands before j.
-\theta >= 0 : The estimated total cost.
+**Proxy Variables (Strengthening):**
+- \(x_i^m \in [E_i, L_i]\): Approximate landing time (integer).
+- \(\alpha_i^m, \beta_i^m \ge 0\): Approximate time deviations (integer).
 
-**Proxy Variables (for Strengthening):**
-
-x_i^m ∈ [E_i, L_i] : Approximate integer landing time.
-alfa_i^m, beta_i^m >= 0 : Approximate earliness and lateness.
+**Objective Function:**
+\[
+\min \theta
+\]
 
 **Constraints:**
+1. **Sequencing Logic:**
+   \[
+   y_{ij} + y_{ji} = 1, \quad \forall (i,j) \in U
+   \]
 
-1. **Sequencing Logic:** For all uncertain pairs, one must precede the other.
+2. **Proxy Deviation Definition:**
+   \[
+   x_i^m + \alpha_i^m - \beta_i^m = T_i, \quad \forall i \in P
+   \]
 
-          y_ij + y_ji = 1, Forall (i,j) ∈ U
+3. **Logical Separation Constraints (Strengthening):**
+   For pairs where \(i\) precedes \(j\) (\((i,j) \in V\) or \(y_{ij} = 1\)):
 
-2. **Logical Separation (Proxy Time):** Enforces separation logic directly in the Master using logical implication.
-If i precedes j (y_ij = 1):
+   - If same runway (\(r_i = r_j\)):
+     \[
+     x_j^m \ge x_i^m + S_{ij}
+     \]
+   - If different runways (\(r_i \ne r_j\)):
+     \[
+     x_j^m \ge x_i^m + s_{ij}
+     \]
 
-          x_j^m >= x_i^m + S_ij if r_i = r_j
-          x_j^m >= x_i^m + s_ij if r_i != r_j
+4. **Cost Lower Bound:**
+   \[
+   \theta \ge \sum_{i \in P} (g_i \alpha_i^m + h_i \beta_i^m)
+   \]
 
-3. **Cost Lower Bound:** The objective \theta must be at least the cost calculated by the proxy variables.
+5. **Benders Cuts (Optimality Cuts):**
+   For iteration \(k\) with solution \((\hat{r}^{(k)}, \hat{y}^{(k)})\) and subproblem cost \(Z_{SP}^{(k)}\):
 
-          \theta >= Sum_i∈P (g_i * alfa_i^m + h_i * beta_i^m)
+   \[
+   \bigwedge_{i \in P} (r_i = \hat{r}_i^{(k)}) \wedge \bigwedge_{(i,j) \in U} (y_{ij} = \hat{y}_{ij}^{(k)}) \implies \theta \ge Z_{SP}^{(k)}
+   \]
 
-4. **Benders Cuts (Optimality):** Ideally, if a configuration (r^, y^) is revisited, the cost \theta must be greater than or equal to the true cost found by the Subproblem (Z_SP).
+   *(Feasibility cuts are applied if the Subproblem is infeasible.)*
 
-          (Configuration = (r^, y^)) => \theta >= Z_SP
-
-
-### 3.4. The Subproblem (LP)
-
-Once the Master fixes the variables r^ (runways) and y^ (sequence), the complex disjunctive constraints disappear. The problem collapses into a continuous Linear Programming (LP) model, which is solvable in polynomial time.
+### 3.3. Subproblem (LP)
+Given fixed \(\hat{r}\) and \(\hat{y}\) from the Master, the Subproblem determines exact continuous times.
 
 **Decision Variables:**
+- \(x_i \in [E_i, L_i]\): Exact landing time (continuous).
+- \(\alpha_i, \beta_i \ge 0\): Exact deviations (continuous).
 
-x_i ∈ [E_i, L_i] : Exact continuous landing time.
-alfa_i, beta_i >= 0 : Exact earliness and lateness.
+**Derived Parameter:** Active Separation \(\Delta_{ij}\):
+\[
+\Delta_{ij} =
+\begin{cases}
+S_{ij} & \text{if } \hat{r}_i = \hat{r}_j \\
+s_{ij} & \text{if } \hat{r}_i \ne \hat{r}_j
+\end{cases}
+\]
 
-**Derived Parameter:**
-We define the active separation \delta_ij based on the Master's decision:
-
-          \delta_ij = { S_ij, if y^_ij = 1 and r^_i = r^_j
-                      { s_ij, if y^_ij = 1 and r^_i != r^_j
+**Objective Function:**
+\[
+\min Z_{SP} = \sum_{i \in P} (g_i \alpha_i + h_i \beta_i)
+\]
 
 **Constraints:**
+1. **Deviation Definition:**
+   \[
+   x_i + \alpha_i - \beta_i = T_i, \quad \forall i \in P
+   \]
 
-1. **Deviation Definition:** x_i + alfa_i - beta_i = T_i
-2. **Fixed Separation:** x_j >= x_i + \delta_ij (Only applied for pairs where precedence is active).
-
-**Objective:**
-
-          min Z_SP = Sum_i∈P (g_i * alfa_i + h_i * beta_i)
-
+2. **Fixed Separation Constraints:** Applied to active precedence pairs:
+   \[
+   x_j \ge x_i + \Delta_{ij}
+   \]
 
 ## 4. How It Functions (The Algorithm)
+The interaction between Master and Subproblem follows an iterative loop:
 
-The interaction between the two models follows an iterative loop:
+1. **Initialization:** \(k = 0\)
 
-1. **Master Step:** The CP solver finds a sequence and runway allocation. Thanks to the "Strengthened" variables, it also produces a valid integer schedule with an estimated cost .
-2. **Subproblem Step:** The LP solver takes this sequence and optimizes the continuous times to find the *true* minimal cost Z_SP.
-3. **Convergence Check:**
-* If the Master's estimate (\theta*) equals the true cost (Z_SP), the solution is optimal. The loop terminates.
-* If Z_SP > \theta*, the Master was too optimistic. An **Optimality Cut** is generated and added to the Master, effectively stating: *"For this specific sequence, the cost is actually Z_SP."*
+2. **Master Step:** Solve the Master Problem (CP) to get \(\hat{r}, \hat{y}, \theta^*\). Proxy variables give a strong approximation of real cost.
 
+3. **Subproblem Step:** Fix \(\hat{r}, \hat{y}\) in Subproblem (LP) and solve to obtain actual minimal cost \(Z_{SP}\).
 
-4. **Iteration:** The process repeats with the added cut, forcing the Master to explore different parts of the solution space or adjust its cost estimation.
+4. **Convergence Check:**
+   - If \(Z_{SP} \le \theta^* + \epsilon\): **STOP**. Optimal solution found.
+   - Otherwise: Add a **Benders Cut** with value \(Z_{SP}\).
 
-### Overall Interpretation
+5. **Iteration:** \(k \gets k+1\), return to step 2.
 
+**Overall Interpretation:**
 By using the **Strengthened Master**, the CP model performs "Pre-Optimization." Instead of blind guessing, it provides high-quality sequences from the very first iteration. The LP then acts merely as a fine-tuning step to adjust decimal precision. This explains why the implementation often converges to the optimal solution (e.g., Cost 90) in very few iterations.
