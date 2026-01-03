@@ -3,6 +3,8 @@ import time
 from ortools.sat.python import cp_model
 from ortools.linear_solver import pywraplp
 
+from others.performance import PerformanceHybrid
+
 # 0. HELPER FUNCTIONS (Sets & Reading)
 def calculate_sets(num_planes, planes_data, separation_times):
     W, V, U = [], [], []
@@ -80,10 +82,14 @@ def solve_subproblem_lp(num_planes, planes_data, separation_times, separation_be
         return "OTHER", 0, []
 
 # 2. MASTER PROBLEM (CP - Strengthened)
-def solve_hybrid_lbbd(num_planes, num_runways, planes_data, separation_times, separation_between_runways, max_iterations=20):
+def solve_hybrid_lbbd(num_planes, num_runways, planes_data, separation_times, separation_between_runways, max_iterations=20, search_strategy=cp_model.AUTOMATIC_SEARCH, performance = False):
     print("\n" + "=" * 60)
     print("\t\tRunning Hybrid LBBD Solver (Strengthened Master)")
     print("=" * 60, "\n")
+
+    if performance:
+        perf = PerformanceHybrid()
+        perf.start()
 
     start_time = time.time()
     W, V, U = calculate_sets(num_planes, planes_data, separation_times)
@@ -177,7 +183,11 @@ def solve_hybrid_lbbd(num_planes, num_runways, planes_data, separation_times, se
         iteration += 1
         print(f"--- Iteration {iteration} ---")
 
+        solver.parameters.search_branching = search_strategy
         status = solver.Solve(master_model)
+
+        if performance:
+            perf.update_cp_metrics(solver, master_model)
 
         if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
             print("Master problem INFEASIBLE.")
@@ -192,10 +202,15 @@ def solve_hybrid_lbbd(num_planes, num_runways, planes_data, separation_times, se
             fixed_before[(i, j)] = solver.Value(before[(i, j)])
 
         # Solve Subproblem (LP)
+        if performance:
+            lp_start = time.time()
         sp_status, sp_cost, sp_times = solve_subproblem_lp(
             num_planes, planes_data, separation_times, separation_between_runways,
             fixed_runways, fixed_before, W, V, U
         )
+        if performance:
+            lp_time = time.time() - lp_start
+            perf.update_mip_metrics(lp_time)
 
         # Function to create boolean literals for cuts
         def create_literals():
@@ -236,8 +251,25 @@ def solve_hybrid_lbbd(num_planes, num_runways, planes_data, separation_times, se
                 # Benders Cut
                 master_model.Add(theta >= sp_cost_int).OnlyEnforceIf(is_same)
 
-    metrics = {}
-    return solver, master_model, sp_times, metrics
+    if performance:
+        perf.return_metrics(iterations = iteration, converged=(sp_status=="OPTIMAL" and sp_cost_int <= current_theta + 1e-4) )
+        perf.stop()
+        metrics = {
+            "total_best_objective_bound": round(sp_cost, 2) if sp_status=="OPTIMAL" else None,
+            "num_iterations": iteration,
+            "converged": perf.converged,
+            "total_time": perf.get_total_wall_time(),
+            "cp_time": round(perf.cp_total_time, 7),
+            "mip_time": round(perf.mip_total_time, 7),
+            "mip_num_calls": perf.mip_num_calls,
+            "cp_num_branches": perf.cp_num_branches,
+            "cp_num_conflicts": perf.cp_num_conflicts,
+            "cp_num_booleans": perf.cp_num_booleans,
+            "cp_num_variables": perf.cp_num_variables,
+            "cp_num_constraints": perf.cp_num_constraints,
+            "memory_start_MB": round(perf.memory_peak / 1024, 7)
+        }
+    return solver, master_model, sp_times, metrics if performance else None
 
 def print_solution(times, runways, cost, num_planes, planes_data):
     plane_ids = [str(i) for i in range(num_planes)]
