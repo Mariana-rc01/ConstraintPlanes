@@ -269,7 +269,7 @@ def solve_hybrid_lbbd(num_planes, num_runways, planes_data, separation_times, se
             "cp_num_constraints": perf.cp_num_constraints,
             "memory_start_MB": round(perf.memory_peak / 1024, 7)
         }
-    return solver, master_model, sp_times, metrics if performance else None
+    return solver, master_model, fixed_runways, sp_times, metrics if performance else None
 
 def print_solution(times, runways, cost, num_planes, planes_data):
     plane_ids = [str(i) for i in range(num_planes)]

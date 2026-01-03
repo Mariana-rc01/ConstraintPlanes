@@ -52,7 +52,7 @@ def generate_separation_between_runways(num_planes, num_runways, separation_same
 
     return separation_between_runways
 
-def save_solution(solver, variables, num_planes, data, solution_file, tag, dataset_name, num_runways=None, landing_times_override=None):
+def save_solution(solver, variables, num_planes, data, solution_file, tag, dataset_name, num_runways=None, landing_times_override=None, fixed_runways = None):
 
     if landing_times_override is None:
         landing_time_vars = variables["landing_time"]
@@ -85,12 +85,25 @@ def save_solution(solver, variables, num_planes, data, solution_file, tag, datas
         target   = round(data[i]["target_landing_time"],2)
         latest   = round(data[i]["latest_landing_time"],2)
 
+        runway_assigned = 0
+        if tag.startswith("MIP") and "landing_runway" in variables:
+            for r in range(num_runways):
+                val = variables["landing_runway"][(i, r)].solution_value()
+                if round(val) == 1:
+                    runway_assigned = r
+                    break
+        elif tag.startswith("CP") and "runway_i" in variables:
+            runway_assigned = solver.Value(variables["runway_i"][i])
+        elif fixed_runways is not None:
+            runway_assigned = fixed_runways[i]
+
         landing_times.append({
             "plane": i,
             "landing_time": float(t),
             "earliest": earliest,
             "target": target,
-            "latest": latest
+            "latest": latest,
+            "runway": runway_assigned
         })
 
         early = round(max(0.0, target - t),2)
