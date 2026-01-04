@@ -314,12 +314,19 @@ def create_mip_model_multiple_runways(num_planes, planes_data, separation_times,
         solver.Add(landing_times[j] >= landing_times[i] + separation_times[i][j] * same_runway[(i,j)] +
                    separation_times_between_runways[i][j] * (1 - same_runway[(i,j)]))
 
-    for i,j in U:
+    BIG_M = max(p["latest_landing_time"] for p in planes_data) + 1000
+    for i, j in U:
         delta_ij = landing_order[(i, j)]
         delta_ji = landing_order[(j, i)]
-        L_i, E_j = planes_data[i]["latest_landing_time"], planes_data[j]["earliest_landing_time"]
-        max_separation = max(separation_times[i][j], separation_times_between_runways[i][j])
-        solver.Add(landing_times[j] >= landing_times[i] + separation_times[i][j] * same_runway[(i,j)] - (L_i + max_separation - E_j) * delta_ji)
+
+        # Make sure only one of the two constraints is active
+        solver.Add(
+            landing_times[j] >= landing_times[i] + separation_times[i][j] * same_runway[(i,j)]
+            + separation_times_between_runways[i][j] * (1 - same_runway[(i,j)]) - BIG_M * delta_ji)
+
+        solver.Add(
+            landing_times[i] >= landing_times[j] + separation_times[j][i] * same_runway[(i,j)]
+            + separation_times_between_runways[j][i] * (1 - same_runway[(i,j)]) - BIG_M * delta_ij)
 
     for i in range(num_planes):
         E_i, L_i, T_i = planes_data[i]["earliest_landing_time"], planes_data[i]["latest_landing_time"], planes_data[i]["target_landing_time"]

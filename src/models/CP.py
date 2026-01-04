@@ -363,6 +363,7 @@ def create_cp_model_multiple_runway(num_planes, num_runways, planes_data, separa
         # Define early_deviation and late_deviation
         model.Add(early_deviation[i] >= T[i] - landing_time[i])
         model.Add(late_deviation[i] >= landing_time[i] - T[i])
+        model.Add(landing_time[i] == T[i] - early_deviation[i] + late_deviation[i])
 
     for i in range(num_planes):
         for j in range(num_planes):
