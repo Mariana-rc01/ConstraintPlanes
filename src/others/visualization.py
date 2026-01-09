@@ -560,8 +560,7 @@ def visualization(
 
     fancy_title = "Aircraft Landing Schedule Timeline"
     subtitle = (
-        f"Solver: {solver} | Instance: {file_name} | Visualized runways: {num_runways}"
-        f" | (Separation violations within runways: {len(violations)})")
+        f"Solver: {solver} | Instance: {file_name} | Visualized runways: {num_runways}")
 
 
     plot_landing_gantt_multi_runway(
