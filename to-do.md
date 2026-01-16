@@ -11,14 +11,14 @@ To-Do List: (at least)
 - [X] Test of the model
 
   Comparison between the MIP and CP models:
-- [ ] Comparing both the solutions (to check for correctness)
-- [ ] Comparing the running times (to check for efficiency) of the model
+- [X] Comparing both the solutions (to check for correctness)
+- [X] Comparing the running times (to check for efficiency) of the model
 
   Others:
 - [X] Fazer gráfico das differentes formas de search strategies
 - [X] Valor ótimo de multiple runways
 - [X] Fazer junção do MIP com o CP -> ver melhor base matemática
-- [ ] Tentar fazer um gráfico que mostra o tempo a aumentar de forma exponencial quando o num_runways diminui
+- [X] Tentar fazer um gráfico que mostra o tempo a aumentar de forma exponencial quando o num_runways diminui
 
 Notes:
 
@@ -27,7 +27,7 @@ Notes:
 
 Ideias:
 
-* [X]  visualização interativa ou dinâmica da sequência dos aviões a aterrarem para um certo conjunto de dados (fica bem visualmente para até 30 aviões, mais pode ser confuso)
+* [X] visualização interativa ou dinâmica da sequência dos aviões a aterrarem para um certo conjunto de dados (fica bem visualmente para até 30 aviões, mais pode ser confuso)
 
 Interpretação dos ficheiros:
 number of planes (p), freeze time
