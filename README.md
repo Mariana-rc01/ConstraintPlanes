@@ -1,5 +1,7 @@
 # Aircraft Landing Problem
 
+## Grade: 20.56/20 :star::star::star:
+
 ## Authors
 
 Mariana Rocha Cristino - up202502528
