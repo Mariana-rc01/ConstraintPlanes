@@ -2,6 +2,8 @@
 
 ## Grade: 20.56/20 :star::star::star:
 
+> 20.56/20 — No bonus points were added; the evaluation simply reflected the quality of the work.
+
 ## Authors
 
 Mariana Rocha Cristino - up202502528
